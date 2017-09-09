@@ -1,0 +1,36 @@
+* Ordering-System for the SoLaWi-Rhein-Neckar
+** Installation
+*** Make sure you have "virtualenv" installed
+#+BEGIN_SRC shell
+$ virtualenv --version
+#+END_SRC
+
+*** Clone this repo and move into subdirectory
+#+BEGIN_SRC shell
+$ git clone git@github.com:mrtukkin/solawi.git
+$ cd solawi
+#+END_SRC
+
+*** Initialize the virtual environment and install dependencies
+#+BEGIN_SRC shell
+solawi $ virtualenv -p python3.5 venv
+solawi $ source venv/bin/activate
+(venv) solawi $ pip install django
+#+END_SRC
+
+*** Start the app
+If you run the app for the first time, make sure you create a super-user:
+
+#+BEGIN_SRC shell
+(venv) solawi $ ./manage.py createsuperuser
+#+END_SRC
+
+Start the app with:
+
+#+BEGIN_SRC shell
+(venv) solawi $ ./manage.py runserver
+#+END_SRC
+
+** Usage
+There are not many views yet, but you can create data objects in the admin view.
+Go to http://127.0.0.1:8000/admin and login with your super-user.
