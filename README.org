@@ -34,3 +34,5 @@ Start the app with:
 ** Usage
 There are not many views yet, but you can create data objects in the admin view.
 Go to http://127.0.0.1:8000/admin and login with your super-user.
+
+** TODO Data Model
