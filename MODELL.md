@@ -1,21 +1,21 @@
 This File describes the concept of the data structure in the backend for this ordering tool.
 
-## We need in general the following entries:
+#### We need in general the following entries:
 Properties which are embraced are properties which are not necessarily needed.
 
 General responsibilities:
-	Admins
-	Oderingadmins ...
+-	Admins
+-	Oderingadmins ...
 
 SoLaWi products entries:
-	flag orderable
-	(max number orderable at once)
-	flag exchangable
-	interchangeing value (IV) messured in in l Milk or pice Beard or watheverand default 0 for not changeable
-	flag modular 
-		-> flag module or sellable
-		-> period of module time
-		-> optional price in €
+-	flag orderable
+-	(max number orderable at once)
+-	flag exchangable
+-	interchangeing value (IV) messured in in l Milk or pice Beard or watheverand default 0 for not changeable
+-	flag modular 
+		-- flag module or sellable
+		-- period of module time
+		-- optional price in €
 
 % where to put flag sellable with selling price if needed?
 
