@@ -13,13 +13,12 @@ Properties which are embraced are properties which are not necessarily needed.
 -	flag exchangable
 -	interchangeing value (IV) messured in in l Milk or pice Beard or watheverand default 0 for not changeable
 	flag modular 
-		- flag module or sellable
-		- period of module time
-		- optional price in €
+	- flag module or sellable
+	- period of module time
+	- optional price in €
+	list of (type, packagesizes) tuples
 
 % where to put flag sellable with selling price if needed?
-
-	list of (type, packagesizes) tuples
 
 #### Depot entries:
 	Depotbesteller, ... and probably more orga people
