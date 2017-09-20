@@ -12,19 +12,19 @@ Properties which are embraced are properties which are not necessarily needed.
 -	(max number orderable at once)
 -	flag exchangable
 -	interchangeing value (IV) messured in in l Milk or pice Beard or watheverand default 0 for not changeable
-	flag modular 
+-	flag modular 
 	- flag module or sellable
 	- period of module time
 	- optional price in €
-	list of (type, packagesizes) tuples
+	- list of (type, packagesizes) tuples
 
 % where to put flag sellable with selling price if needed?
 
 #### Depot entries:
-	Depotbesteller, ... and probably more orga people
-	Sharholders of Depot List
+-	Depotbesteller, ... and probably more orga people
+-	Sharholders of Depot List
 
-% We need to decide whether the depots store the entries of the people being part of it or the shareholders store have an entry with Depot. Mind that we haven some people without Depot or rather picking up form Nussloch directly. I prefer to link shareholders in the depot and have a singlebox holder depot to be more structured and be able to have new depots.
+	 We need to decide whether the depots store the entries of the people being part of it or the shareholders store have an entry with Depot. Mind that we haven some people without Depot or rather picking up form Nussloch directly. I prefer to link shareholders in the depot and have a singlebox holder depot to be more structured and be able to have new depots.
 
 #### SoLaWi shareholders entry
 	-> Nubmer of shares (poitive integer or 0,5 for small share)
