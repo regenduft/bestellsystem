@@ -10,15 +10,14 @@ Properties which are embraced are properties which are not necessarily needed.
 #### SoLaWi products entries:
 - flag orderable
 - (max number orderable at once)
-- flag exchangable
-- interchangeing value (IV) messured in in l Milk or pice Beard or watheverand default 0 for not changeable
+- flag exchangeable (not needed if standard IV value is 0 and if you can't exchange 0 value Products)
+- interchanging value (IV) measured in piece Beard (or whatever) with default 0 for not changeable
 - flag modular 
-  - flag module or sellable
   - period of module time
   - optional price in €
-  - list of (type, packagesizes) tuples
+- list of (type, package sizes) tuples
 
-% where to put flag sellable with selling price if needed?
+The question arises if we want a sellable flag here or if we want to manage this with the weekly baskets. If we do this with weekly baskets we reduce complexity. An other question is should a "user" be able to change his basket?  (Status quo is with weekly baskets)
 
 #### Depot entries:
 - Depotbesteller, ... and probably more orga people
@@ -27,10 +26,11 @@ Properties which are embraced are properties which are not necessarily needed.
 ii. We need to decide whether the depots store the entries of the people being part of it or the shareholders store have an entry with Depot. Mind that we haven some people without Depot or rather picking up form Nussloch directly. I prefer to link shareholders in the depot and have a singlebox holder depot to be more structured and be able to have new depots.
 
 #### SoLaWi shareholders entry
-- Nubmer of shares (poitive integer or 0,5 for small share)
-- saldo in IV (strictly poitive with max capacity of 8 weekly baskets) momentary order included 
+- type of weekly basket
+- Number of shares (positive integer or 0,5 for small share)
+- Saldo in IV (strictly positive with max capacity of 8 weekly baskets) momentary order included 
 
-ii. When initializing a new one ask for Depot, vegetarian, vegan and sell meat.
+ii. When initializing a new one ask for Depot, and type of weekly basket (e.g. sell meat).
 	
 
 #### Changeable weekly capacity-baskets/ standard order as collection of products
@@ -40,20 +40,23 @@ ii. When initializing a new one ask for Depot, vegetarian, vegan and sell meat.
 	
 ## for the ordering:
 #### momentary/ next order per shareholder
-- regulary ordered, exchange, deorderd products 
-  - flag order, deorder, exchange
-  - optional expireing date
-  - if module or sellable, point of next possible change (start + period in weeks )
-  - week of next order
+- regularly module order, exchange, deorderd products 
+  - regularly order of modules (extra vegetables are modules)
+    - point of next possible change 
+  - regularly deorder
+  - regularly exchange
+    - tuple (product to change form, to change into)
+    - ( expireing date )
+    - saldo saved till now -> aprox. week of next order
+    - ( period of ordering if not to complicated)
 
 - one time products:
   - sepzial products: 
-    vegtables, with possible products amount to be enabled for odering
     bread, with type preference
-  - not per product
+  - notes per product or order
 
-ii. multiple week deordering all for vacation, should the flour product sum into saldo?
-
+ii. multiple week deordering all for vacation, should the bread sum into saldo?
+    If bread isn't orderable reduce amount of bread in weekly basket -1
 
 ## views needed for the packing and ordering process:
  All overviews need to have a present and past version.
@@ -68,17 +71,18 @@ ii. multiple week deordering all for vacation, should the flour product sum into
 #### view total bread order with preferences per depot:
 
 #### view of modular products:
-	e.g. bread, meat, hearbs, quark, (cheese)...
+	e.g. hearbs, quark, extra vegetables (cheese)...
 
 ## comments regarding the interface:
 
 The ii. lines are notes regarding the interface.
-We need to decide the date, when the weekly oder is closeing.
-An E-Mail should be sent to persons in charge (see secu layer, Depotadmins, Oderingadmins, ...) in PDF format (or excel whatever is best)
+We need to decide the date, when the weekly oder is closing.
+An E-Mail should be sent to persons in charge (see administration layer, Depotadmins, Oderingadmins, ...) in PDF format (or excel whatever is best)
 
+Bread:
 #### We need the following administration layers.
 - Fulladmins
-- Depotadmins (push to other depot function with notification to other depotadmin, acess to depot overview, able to change momentary (and last week or all?) odering)
-- Oderingadmins (acess to all overviews,Products acess, weekly basket change, full past oderings acess)
-- Userlevel (change momentary and regular odering, view last oderings)
+- Depotadmins (push to other depot function with notification to other depotadmin?, acess to depot overview, able to change momentary (and last week or all?) orderings)
+- Oderingadmins (aces to all overviews, Products aces, weekly basket change, full past ordering aces)
+- Userlevel (change momentary and regular ordering, view last orders)
 
