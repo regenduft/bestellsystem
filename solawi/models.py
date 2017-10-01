@@ -6,7 +6,7 @@ from django.core import validators
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from solawi.validators import portion_account_validate
+from solawi.validators import *
 from django.utils.translation import ugettext_lazy as _
 import json
 from solawi import utils
@@ -18,24 +18,23 @@ class User(AbstractUser):
     is_supervisor = models.BooleanField(_('Make a depot supervisor'),
             default=False)
 
-    depot = models.ForeignKey('Depot', on_delete=models.CASCADE,
+    depot = models.ForeignKey('Depot', on_delete=models.DO_NOTHING,
             related_name='members', blank=True, null=True)
-    defaultbasket = models.ForeignKey('OrderBasket', on_delete=models.CASCADE,
-            related_name='members', blank=True,
-            null=True)
-    count_shares = models.IntegerField(null=True, blank=True, default=0,
+    defaultbasket = models.ForeignKey('WeeklyBasket', on_delete=models.PROTECT,
+            blank=True, null=True, related_name='members')
+    count_shares = models.IntegerField(blank=False, default=1,
             validators=[validators.MinValueValidator(0)])
 
-    assets = models.IntegerField(null=True, blank=True, default=0,
+    assets = models.IntegerField(blank=False, default=0,
             validators=[validators.MinValueValidator(0)])
     #    account = models.TextField(null=True, blank=True, default='[]',
 #                               help_text=_('Containing the JSON array of '
 #                                           'this users gained potentials'),
 #                               validators=[portion_account_validate])
 
-    momentary_order = models.ForeignKey('WeeklyBasket',
+    present_order = models.OneToOneField('PresentOrderBasket',
             on_delete=models.CASCADE,
-            related_name='members',
+            related_name='presentorderofmember',
             blank=True,
             null=True)
 
@@ -91,30 +90,41 @@ class User(AbstractUser):
 
 class ProductProperty(models.Model):
     product = models.ForeignKey('Product',
-            on_delete=models.CASCADE, related_name='productproperties')
+            on_delete=models.CASCADE, related_name='productproperties',
+            blank=False)
 
-    packagesize = models.IntegerField()
-    unit = models.CharField(max_length=15,
-                            help_text=_('The unit to measure this food in, '
-                                        'e.g. kg or L'))
-    producttype = models.CharField(max_length=12,
-            help_text=_('Type of the product'))
+    packagesize = models.IntegerField(default=1)
+    producttype = models.CharField(max_length=12, default='',
+            help_text=_('product type'))
 
     def __str__(self):
         pass
+        return _('{product} of {producttype} in {packagesize} {unit}'
+                ).format(product=self.product,
+                        producttype=self.producttype,
+                        packagesize=self.packagesize, unit=self.product.unit)
 
+    class Meta:
+        verbose_name = _('product and properties')
+        verbose_name_plural = _('products and properties')
+        unique_together= ('product', 'producttype', 'packagesize')
 
 class Product(models.Model):
     ''' '''
     name = models.CharField(max_length=30, unique=True)
     orderable = models.BooleanField(default=False)
     
+    unit = models.CharField(max_length=15, default='',
+                            help_text=_('measuring unit,'
+                                        'e.g. kg or L'))
     # default value none means not modular
-    modular = ( models.IntegerField(), models.FloatField( help_text=_('The price of the modular product.')))
-    # 0 means not exchangable
-    exchange_value = models.FloatField(null=True, blank=True, default=0,
+    module_time = models.IntegerField( help_text=_('''module duration in weeks.
+        Default'''), default = 1)
+    price_of_module = models.FloatField( help_text=_('''modular product price'''), default = 0)
+    # null means not exchangable
+    exchange_value = models.FloatField(null=True, default=0,
         validators=[validators.MinValueValidator(0)],
-        help_text=_('The exchange value per unit.'))
+        help_text=_('exchange value per unit'))
 
 
     class Meta:
@@ -128,7 +138,7 @@ class Product(models.Model):
 class Depot(models.Model):
     ''' '''
     name = models.CharField(max_length=30, unique=True)
-    location = models.CharField(max_length=30)
+    location = models.CharField(max_length=30, default='')
 
     class Meta:
         ''' '''
@@ -139,42 +149,51 @@ class Depot(models.Model):
         return _('{name} at {location}').format(name=self.name,
                                                 location=self.location)
 
-class ProductAmountPerOrder(models.Model):
-    product = models.ForeignKey('Product')
-    order = models.ForeignKey('OrderBasket')
-    count = models.IntegerField(default=0)
 
-    def __str__(self):
-        week = self.basket.week.strftime('%W')
-        year = self.basket.week.year
-        return '{count} of {product} for {user} in {year}-{week}'.format(
-            count=self.count, product=self.product, user=self.basket.user,
-            year=year, week=week)
+class ProductWithAmount(models.Model):
+    product = models.ForeignKey('Product', )
+    productproperty = models.ForeignKey(
+            'ProductProperty', 
+        )
+    count = models.IntegerField(default=0)
 
     class Meta:
         ''' '''
-        verbose_name = _('PAPO')
-        verbose_name_plural = _('PAPOs')
+        verbose_name = _('product with property and amount')
+        verbose_name_plural = _('product with properties and amount')
 
     def __str__(self):
-        return _('{name} at {location}').format(name=self.name,
-                                                location=self.location)
+        week = self.order.week.strftime('%W')
+        year = self.order.week.year
+        return '{count} of {pro}'.format(
+            count=self.count, pro=self.productproperty)
+
+
+class ProductInOrder(models.Model):
+    #ForeignKey or OneToOneField? parent link
+    productAmount = models.ForeignKey('ProductWithAmount') 
+
+    order = models.ForeignKey('OrderBasket')
+
+    class Meta:
+        ''' '''
+        verbose_name = _('product with property and amount')
+        verbose_name_plural = _('product with properties and amount')
+
+    def __str__(self):
+        week = self.order.week.strftime('%W')
+        year = self.order.week.year
+        return '{count} {pro} by {user} in {year}-{week}'.format(
+            count=self.count, pro=self.productproperty, user=self.order.user,
+            year=year, week=week)
+
 
 class OrderBasket(models.Model):
     ''' '''
     week = models.DateField()
     # uniquenes of the order?
     user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='orders')
-    contents = models.ManyToManyField('Product', through='ProductAmountPerOrder')
-
-    edited_weekly_basket = models.BooleanField(
-        _('Has edited the weekly basket for this week'), default=False)
-
-    class Meta:
-        ''' '''
-        verbose_name = _('order basket')
-        verbose_name_plural = _('order baskets')
-        unique_together = ('week', 'user')
+    contents = models.ManyToManyField('Product', through='ProductInOrder')
 
     def clean(self):
         ''' '''
@@ -195,6 +214,14 @@ class OrderBasket(models.Model):
         self.week = utils.get_moday(self.week)
         super().save(*args, **kwargs)
 
+
+    class Meta:
+        ''' '''
+        verbose_name = _('ordering basket')
+        verbose_name_plural = _('ordering baskets')
+        unique_together = ('week', 'user')
+
+
     def __str__(self):
         ostr = ', '.join([str(i) for i in self.contents.all()])
         week = self.week.strftime('%W')
@@ -205,4 +232,69 @@ class OrderBasket(models.Model):
 
 class WeeklyBasket(models.Model):
     ''' '''
-    order = OrderBasket()
+    order = models.OneToOneField('OrderBasket', null=True, blank=False,
+            on_delete=models.CASCADE, related_name='defaultordering')
+    name = models.CharField(max_length=15, blank=False, unique=True,
+            default='', help_text=_('basket name'))
+
+
+class PresentOrderBasket(models.Model):
+    ''' '''
+    order = models.OneToOneField('OrderBasket', null=True, blank=False,
+            on_delete=models.DO_NOTHING, related_name='momentaryordering')
+
+    
+    def book_regulary_order(self, date):
+        # do booking -> delet
+        user = self.order.user
+        order = OrderBasket.Objects.get(user = user).defaultbasket.order
+        # update order
+        # create new order
+        # reset ordering
+        pass
+
+class RegularyDeorder(models.Model):
+    pass
+
+class RegularyModularOrder(models.Model):
+    pass
+
+class RegularyExchange(models.Model):
+
+    inproduct = models.ForeignKey(
+           'Product',
+           #limit_choices_to =
+           on_delete = models.CASCADE,
+           blank=False, null=True)
+    outproduct = models.ForeignKey(
+           'ProductWithAmount',
+           #limit_choices_to =
+           on_delete = models.CASCADE,
+           blank=True, null=True)
+    asset = models.IntegerField(default = 0)
+
+    #period to order in, in weeks
+    period = models.IntegerField(default = 0)
+
+#    def book_into_order(self, order):
+#       regulary_order_validator(self,order)
+#    
+#
+#       user = order.user
+#       week = datetime.today()
+#       
+#       newP = ProductInOrder(productAmount = outproduct, order = order)
+#       newP.save()
+#
+#       # get outproduct via Product in Order
+#       return order
+
+
+    class Meta:
+        ''' '''
+        verbose_name = _('regularly exchange of a product')
+        verbose_name_plural = _('regularly exchange of products')
+        unique_together = (inproduct, outproduct)
+
+   
+
