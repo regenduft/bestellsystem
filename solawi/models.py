@@ -16,23 +16,26 @@ class User(AbstractUser):
     ''' '''
     is_member = models.BooleanField(_('Make a paying member'), default=True)
     is_supervisor = models.BooleanField(_('Make a depot supervisor'),
-            default=False)
+                                        default=False)
 
     depot = models.ForeignKey('Depot', on_delete=models.DO_NOTHING,
-            related_name='members', blank=True, null=True)
+                              related_name='members', blank=True, null=True)
 
     defaultbasket = models.ForeignKey('WeeklyBasket', on_delete=models.PROTECT,
-            blank=True, null=True, related_name='members')
+                                  blank=True, null=True, related_name='members')
 
-    count_shares = models.IntegerField(blank=False, default=1,
-            validators=[validators.MinValueValidator(0)])
+    count_shares = models.IntegerField(blank=False,
+                                       default=1,
+                                  validators=[validators.MinValueValidator(0)])
 
     assets = models.IntegerField(blank=False, default=0,
-            validators=[validators.MinValueValidator(0)])
+                                 validators=[validators.MinValueValidator(0)])
 
     presentorder = models.OneToOneField('OrderContents',
-            blank=False, null = True,
-            on_delete=models.CASCADE, related_name='userofpresentorder')
+                                        blank=False,
+                                        null=True,
+                                        on_delete=models.CASCADE,
+                                        related_name='userofpresentorder')
 
     def recalculate_present_order(self):
         pass
@@ -89,44 +92,48 @@ class User(AbstractUser):
 
 class ProductProperty(models.Model):
     product = models.ForeignKey('Product',
-            on_delete=models.PROTECT, related_name='productproperties',
-            blank=False)
+                                on_delete=models.PROTECT,
+                                related_name='productproperties',
+                                blank=False)
 
     packagesize = models.FloatField(default=1)
-    producttype = models.CharField(max_length=12, 
-            default='',
-            blank = True,
-            help_text=_('product type'))
+    producttype = models.CharField(max_length=12,
+                                   default='',
+                                   blank=True,
+                                   help_text=_('product type'))
 
     def __str__(self):
         pass
         return _('{product} of {producttype} in {packagesize} {unit}'
                 ).format(product=self.product,
-                        producttype=self.producttype,
-                        packagesize=self.packagesize, unit=self.product.unit)
+                         producttype=self.producttype,
+                         packagesize=self.packagesize, unit=self.product.unit)
 
     class Meta:
         verbose_name = _('product and properties')
         verbose_name_plural = _('products and properties')
-        unique_together= ('product', 'producttype', 'packagesize')
+        unique_together = ('product', 'producttype', 'packagesize')
+
 
 class Product(models.Model):
     ''' '''
     name = models.CharField(max_length=30, unique=True)
     orderable = models.BooleanField(default=False)
-    
+
     unit = models.CharField(max_length=15, default='',
                             help_text=_('measuring unit,'
                                         'e.g. kg or L'))
-    # default value none means not modular
-    module_time = models.IntegerField( help_text=_('''module duration in weeks.
-        Default'''), default = 1)
-    price_of_module = models.FloatField( help_text=_('''modular product price'''), default = 0)
-    # null means not exchangable
-    exchange_value = models.FloatField(null=True, default=0,
-        validators=[validators.MinValueValidator(0)],
-        help_text=_('exchange value per unit'))
 
+    # default value none means not modular
+    module_time = models.IntegerField(help_text=_('module duration in weeks'),
+                                      default=1)
+    price_of_module = models.FloatField(help_text=_('modular product price'),
+                                        default=0)
+    # null means not exchangable
+    exchange_value = models.FloatField(null=True,
+                                       default=0,
+                                       validators=[validators.MinValueValidator(0)],
+                                       help_text=_('exchange value per unit'))
 
     class Meta:
         ''' '''
@@ -135,6 +142,7 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class Depot(models.Model):
     ''' '''
@@ -171,15 +179,15 @@ class Depot(models.Model):
 
 
 class ProductAmountProperty(models.Model):
-    #ForeignKey or OneToOneField? parent link
+    # ForeignKey or OneToOneField? parent link
     product = models.ForeignKey('Product', )
-    productproperty = models.ForeignKey(
-            'ProductProperty', 
-        )
+    productproperty = models.ForeignKey('ProductProperty')
     count = models.IntegerField(default=0)
 
     ordercontents = models.ForeignKey('OrderContents',
-            on_delete = models.DO_NOTHING, blank=True, null=True)
+                                      on_delete=models.DO_NOTHING,
+                                      blank=True,
+                                      null=True)
 
     class Meta:
         ''' '''
@@ -197,39 +205,51 @@ class ProductAmountProperty(models.Model):
 class OrderContents(models.Model):
 
     products = models.ManyToManyField('Product',
-            through='ProductAmountProperty', related_name = 'contentof',  blank = True)
-
+                                      through='ProductAmountProperty',
+                                      related_name='contentof',
+                                      blank=True)
 
     def __str__(self):
         ostr = ', '.join([str(i) for i in self.products.all()])
-        return _('{order} ').format(order =
-                ostrr)
+        return _('{order} ').format(order=ostr)
+
 
 class WeeklyBasket(models.Model):
     ''' '''
     content = models.OneToOneField('OrderContents',
-            blank=False, null = True,
-
-            # TODO limit_choices_to without Order basket functions
-            on_delete=models.CASCADE, related_name='defaultordering')
-    name = models.CharField(max_length=15, blank=False, unique=True,
-            default='', help_text=_('basket name'))
+                                   blank=False,
+                                   null=True,
+                                   # TODO limit_choices_to without
+                                   # Order basket functions
+                                   on_delete=models.CASCADE,
+                                   related_name='defaultordering')
+    name = models.CharField(max_length=15,
+                            blank=False,
+                            unique=True,
+                            default='',
+                            help_text=_('basket name'))
 
     class Meta:
         pass
 
     def __str__(self):
-        return _('Default Order: {name}, {order} ').format(name = self.name, order =
-                self.content)
+        return _('Default Order: {name}, {order} ').format(name=self.name,
+                                                           order=self.content)
 
 
 class OrderBasket(models.Model):
     ''' .'''
-    content = models.OneToOneField('OrderContents', 
-            parent_link = True, blank = True, null = True)
-    week = models.DateField(blank = False, null = True)
-    user = models.ForeignKey('User', on_delete=models.PROTECT,
-            related_name='orders', blank=False, null = True)
+    content = models.OneToOneField('OrderContents',
+                                   parent_link=True,
+                                   blank=True,
+                                   null=True)
+    week = models.DateField(blank=False,
+                            null=True)
+    user = models.ForeignKey('User',
+                             on_delete=models.PROTECT,
+                             related_name='orders',
+                             blank=False,
+                             null=True)
 
     def clean(self):
         ''' .'''
@@ -253,21 +273,20 @@ class OrderBasket(models.Model):
         year = self.week.year
         return _('{year}-{week} by {user}: {contents}').format(
             year=year, week=week, user=self.user, contents=self.content)
-             
 
 # class PresentOrderBasket(models.Model):
-#     ''' .'''  
+#     ''' .'''
 #     order = models.OneToOneField('OrderBasket',
 #             null = True, blank = False,
-#             on_delete = models.DO_NOTHING, 
+#             on_delete = models.DO_NOTHING,
 #             parent_link = True,
 #             #validator
 #             related_name ='momentaryordering')
-# 
+#
 #     def __str__(self):
 #         ostr = ', '.join([str(i) for i in self.order.contents.all()])
 #         return _('Present order: {contents}').format(contents=ostr)
-# 
+#
 #     class Meta:
 #         ''' '''
 #         verbose_name = _('present ordering')
@@ -276,79 +295,88 @@ class OrderBasket(models.Model):
 
 class RegularyDeorder(models.Model):
 
-    user = models.OneToOneField('User', on_delete=models.PROTECT,
-            related_name='regularydeorders', blank=False, null=True)
-    
+    user = models.OneToOneField('User',
+                                on_delete=models.PROTECT,
+                                related_name='regularydeorders',
+                                blank=False,
+                                null=True)
+
     content = models.OneToOneField(
             'OrderContents',
-            parent_link = True,
-            # validator = 
+            parent_link=True,
+            # validator =
             # validate order is present order
             # limit_choices_to = weekly basket products
-            blank=True, 
-            )
-     
+            blank=True)
+
     class Meta:
         ''' '''
         verbose_name = _('regularly deorder')
         verbose_name_plural = _('regularly deorders')
+
     def __str__():
         ostr = ', '.join([str(i) for i in self.content.contents.all()])
 
         return _('{user} regularly deorders: {content}').format(user=self.user,
-                content=content)
+                                                                content=self.content)
 
 
 class RegularyModularOrder(models.Model):
 
-    user = models.OneToOneField('User', on_delete=models.PROTECT,
-            related_name='regularymodularorders', blank=False, null=True)
+    user = models.OneToOneField('User',
+                                on_delete=models.PROTECT,
+                                related_name='regularymodularorders',
+                                blank=False,
+                                null=True)
 
     content = models.OneToOneField(
             'OrderContents',
-            parent_link = True,
+            parent_link=True,
             # validator =
             # validate order is present order
-            #limit_choices_to = {'modular': True},
-            blank=True, 
-            )
+            # limit_choices_to = {'modular': True},
+            blank=True)
+
     starttime = models.DateField()
 
     class Meta:
         ''' '''
         verbose_name = _('regularly modular order')
         verbose_name_plural = _('regularly modular orders')
+
     def __str__():
         return _('{user} regularly orders: {content}').format(user=self.user,
-                content=content)
+                                                              content=self.content)
+
 
 class RegularyExchange(models.Model):
 
-    user = models.OneToOneField('User', on_delete=models.PROTECT,
-            related_name='regularyexchanges', blank=False, null=True) 
+    user = models.OneToOneField('User',
+                                on_delete=models.PROTECT,
+                                related_name='regularyexchanges',
+                                blank=False,
+                                null=True)
 
     inproduct = models.ManyToManyField(
             'Product',
             # limit_choices_to = weekly basket products
             # validate order is present order
-            blank=True, 
-            )
+            blank=True)
 
     outproduct = models.OneToOneField(
             'OrderContents',
-            parent_link = True,
-            #limit_choices_to =
-            blank=True,
-            )
+            parent_link=True,
+            # limit_choices_to =
+            blank=True)
 
-    asset = models.IntegerField(default = 0)
+    asset = models.IntegerField(default=0)
 
-    #period to order in, in weeks
-    period = models.IntegerField(default = 1)
+    # period to order in, in weeks
+    period = models.IntegerField(default=1)
 
     def aprox_next(self):
         '''Approximate Nr. of weeks to next order of week to next order.'''
-        pass 
+        pass
 
     class Meta:
         ''' '''
@@ -359,6 +387,4 @@ class RegularyExchange(models.Model):
         instr = ', '.join([str(i) for i in self.inproduct.all()])
         return _('''Exchange {inproduct} for {outproduct}''').format(
                 inproduct=instr,
-                outproduct=outproduct)
-   
-
+                outproduct=self.outproduct)
