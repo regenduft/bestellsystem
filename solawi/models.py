@@ -21,12 +21,15 @@ class User(AbstractUser):
     depot = models.ForeignKey('Depot', on_delete=models.DO_NOTHING,
                               related_name='members', blank=True, null=True)
 
-    defaultbasket = models.ForeignKey('WeeklyBasket', on_delete=models.PROTECT,
-                                  blank=True, null=True, related_name='members')
+    defaultbasket = models.ForeignKey('WeeklyBasket',
+                                      on_delete=models.PROTECT,
+                                      blank=True,
+                                      null=True,
+                                      related_name='members')
 
     count_shares = models.IntegerField(blank=False,
                                        default=1,
-                                  validators=[validators.MinValueValidator(0)])
+                                       validators=[validators.MinValueValidator(0)])
 
     assets = models.IntegerField(blank=False, default=0,
                                  validators=[validators.MinValueValidator(0)])
@@ -103,11 +106,11 @@ class ProductProperty(models.Model):
                                    help_text=_('product type'))
 
     def __str__(self):
-        pass
-        return _('{product} of {producttype} in {packagesize} {unit}'
-                ).format(product=self.product,
-                         producttype=self.producttype,
-                         packagesize=self.packagesize, unit=self.product.unit)
+        return _('{product} of {producttype} in {packagesize} {unit}').format(
+            product=self.product,
+            producttype=self.producttype,
+            packagesize=self.packagesize,
+            unit=self.product.unit)
 
     class Meta:
         verbose_name = _('product and properties')
@@ -159,11 +162,9 @@ class Depot(models.Model):
                                                 location=self.location)
 
 
-#class ProductWithAmount(models.Model):
+# class ProductWithAmount(models.Model):
 #    product = models.ForeignKey('Product', )
-#    productproperty = models.ForeignKey(
-#            'ProductProperty', 
-#        )
+#    productproperty = models.ForeignKey('ProductProperty')
 #    count = models.IntegerField(default=0)
 #
 #    class Meta:
