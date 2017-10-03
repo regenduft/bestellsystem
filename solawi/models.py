@@ -20,23 +20,22 @@ class User(AbstractUser):
 
     depot = models.ForeignKey('Depot', on_delete=models.DO_NOTHING,
             related_name='members', blank=True, null=True)
+
     defaultbasket = models.ForeignKey('WeeklyBasket', on_delete=models.PROTECT,
             blank=True, null=True, related_name='members')
+
     count_shares = models.IntegerField(blank=False, default=1,
             validators=[validators.MinValueValidator(0)])
 
     assets = models.IntegerField(blank=False, default=0,
             validators=[validators.MinValueValidator(0)])
-    #    account = models.TextField(null=True, blank=True, default='[]',
-#                               help_text=_('Containing the JSON array of '
-#                                           'this users gained potentials'),
-#                               validators=[portion_account_validate])
 
-    present_order = models.OneToOneField('PresentOrderBasket',
-            on_delete=models.CASCADE,
-            related_name='presentorderofmember',
-            blank=True,
-            null=True)
+    presentorder = models.OneToOneField('OrderContents',
+            blank=False, null = True,
+            on_delete=models.CASCADE, related_name='userofpresentorder')
+
+    def recalculate_present_order(self):
+        pass
 
     class Meta:
         ''' '''
@@ -90,11 +89,13 @@ class User(AbstractUser):
 
 class ProductProperty(models.Model):
     product = models.ForeignKey('Product',
-            on_delete=models.CASCADE, related_name='productproperties',
+            on_delete=models.PROTECT, related_name='productproperties',
             blank=False)
 
-    packagesize = models.IntegerField(default=1)
-    producttype = models.CharField(max_length=12, default='',
+    packagesize = models.FloatField(default=1)
+    producttype = models.CharField(max_length=12, 
+            default='',
+            blank = True,
             help_text=_('product type'))
 
     def __str__(self):
@@ -150,35 +151,40 @@ class Depot(models.Model):
                                                 location=self.location)
 
 
-class ProductWithAmount(models.Model):
+#class ProductWithAmount(models.Model):
+#    product = models.ForeignKey('Product', )
+#    productproperty = models.ForeignKey(
+#            'ProductProperty', 
+#        )
+#    count = models.IntegerField(default=0)
+#
+#    class Meta:
+#        ''' '''
+#        verbose_name = _('product with property and amount')
+#        verbose_name_plural = _('product with properties and amount')
+#
+#    def __str__(self):
+#        week = self.order.week.strftime('%W')
+#        year = self.order.week.year
+#        return '{count} of {pro}'.format(
+#            count=self.count, pro=self.productproperty)
+
+
+class ProductAmountProperty(models.Model):
+    #ForeignKey or OneToOneField? parent link
     product = models.ForeignKey('Product', )
     productproperty = models.ForeignKey(
             'ProductProperty', 
         )
     count = models.IntegerField(default=0)
 
-    class Meta:
-        ''' '''
-        verbose_name = _('product with property and amount')
-        verbose_name_plural = _('product with properties and amount')
-
-    def __str__(self):
-        week = self.order.week.strftime('%W')
-        year = self.order.week.year
-        return '{count} of {pro}'.format(
-            count=self.count, pro=self.productproperty)
-
-
-class ProductInOrder(models.Model):
-    #ForeignKey or OneToOneField? parent link
-    productAmount = models.ForeignKey('ProductWithAmount') 
-
-    order = models.ForeignKey('OrderBasket')
+    ordercontents = models.ForeignKey('OrderContents',
+            on_delete = models.DO_NOTHING, blank=True, null=True)
 
     class Meta:
         ''' '''
-        verbose_name = _('product with property and amount')
-        verbose_name_plural = _('product with properties and amount')
+        verbose_name = _('product with amount and properties')
+        verbose_name_plural = _('products with amount and properties')
 
     def __str__(self):
         week = self.order.week.strftime('%W')
@@ -188,113 +194,171 @@ class ProductInOrder(models.Model):
             year=year, week=week)
 
 
-class OrderBasket(models.Model):
-    ''' '''
-    week = models.DateField()
-    # uniquenes of the order?
-    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='orders')
-    contents = models.ManyToManyField('Product', through='ProductInOrder')
+class OrderContents(models.Model):
 
-    def clean(self):
-        ''' '''
-        super().clean()
-        self.week = utils.get_moday(self.week)
-
-    def save(self, *args, **kwargs):
-        '''
-
-        Args:
-          *args:
-          **kwargs:
-
-        Returns:
-
-        '''
-        # Set every date on Monday!
-        self.week = utils.get_moday(self.week)
-        super().save(*args, **kwargs)
-
-
-    class Meta:
-        ''' '''
-        verbose_name = _('ordering basket')
-        verbose_name_plural = _('ordering baskets')
-        unique_together = ('week', 'user')
+    products = models.ManyToManyField('Product',
+            through='ProductAmountProperty', related_name = 'contentof',  blank = True)
 
 
     def __str__(self):
-        ostr = ', '.join([str(i) for i in self.contents.all()])
-        week = self.week.strftime('%W')
-        year = self.week.year
-        return _('{year}-{week} by {user}: {contents}').format(
-            year=year, week=week, user=self.user, contents=ostr)
-
+        ostr = ', '.join([str(i) for i in self.products.all()])
+        return _('{order} ').format(order =
+                ostrr)
 
 class WeeklyBasket(models.Model):
     ''' '''
-    order = models.OneToOneField('OrderBasket', null=True, blank=False,
+    content = models.OneToOneField('OrderContents',
+            blank=False, null = True,
+
+            # TODO limit_choices_to without Order basket functions
             on_delete=models.CASCADE, related_name='defaultordering')
     name = models.CharField(max_length=15, blank=False, unique=True,
             default='', help_text=_('basket name'))
 
-
-class PresentOrderBasket(models.Model):
-    ''' '''
-    order = models.OneToOneField('OrderBasket', null=True, blank=False,
-            on_delete=models.DO_NOTHING, related_name='momentaryordering')
-
-    
-    def book_regulary_order(self, date):
-        # do booking -> delet
-        user = self.order.user
-        order = OrderBasket.Objects.get(user = user).defaultbasket.order
-        # update order
-        # create new order
-        # reset ordering
+    class Meta:
         pass
 
+    def __str__(self):
+        return _('Default Order: {name}, {order} ').format(name = self.name, order =
+                self.content)
+
+
+class OrderBasket(models.Model):
+    ''' .'''
+    content = models.OneToOneField('OrderContents', 
+            parent_link = True, blank = True, null = True)
+    week = models.DateField(blank = False, null = True)
+    user = models.ForeignKey('User', on_delete=models.PROTECT,
+            related_name='orders', blank=False, null = True)
+
+    def clean(self):
+        ''' .'''
+        super().clean()
+        self.week = utils.get_monday(self.week)
+
+    def save(self, *args, **kwargs):
+        ''' .'''
+        # Set every date on Monday!
+        self.week = utils.get_monday(self.week)
+        super().save(*args, **kwargs)
+
+    class Meta:
+        ''' .'''
+        verbose_name = _('ordering basket')
+        verbose_name_plural = _('ordering baskets')
+        unique_together = ('week', 'user')
+
+    def __str__(self):
+        week = self.week.strftime('%W')
+        year = self.week.year
+        return _('{year}-{week} by {user}: {contents}').format(
+            year=year, week=week, user=self.user, contents=self.content)
+             
+
+# class PresentOrderBasket(models.Model):
+#     ''' .'''  
+#     order = models.OneToOneField('OrderBasket',
+#             null = True, blank = False,
+#             on_delete = models.DO_NOTHING, 
+#             parent_link = True,
+#             #validator
+#             related_name ='momentaryordering')
+# 
+#     def __str__(self):
+#         ostr = ', '.join([str(i) for i in self.order.contents.all()])
+#         return _('Present order: {contents}').format(contents=ostr)
+# 
+#     class Meta:
+#         ''' '''
+#         verbose_name = _('present ordering')
+#         verbose_name_plural = _('present orderings')
+
+
 class RegularyDeorder(models.Model):
-    pass
+
+    user = models.OneToOneField('User', on_delete=models.PROTECT,
+            related_name='regularydeorders', blank=False, null=True)
+    
+    content = models.OneToOneField(
+            'OrderContents',
+            parent_link = True,
+            # validator = 
+            # validate order is present order
+            # limit_choices_to = weekly basket products
+            blank=True, 
+            )
+     
+    class Meta:
+        ''' '''
+        verbose_name = _('regularly deorder')
+        verbose_name_plural = _('regularly deorders')
+    def __str__():
+        ostr = ', '.join([str(i) for i in self.content.contents.all()])
+
+        return _('{user} regularly deorders: {content}').format(user=self.user,
+                content=content)
+
 
 class RegularyModularOrder(models.Model):
-    pass
 
-class RegularyExchange(models.Model):
+    user = models.OneToOneField('User', on_delete=models.PROTECT,
+            related_name='regularymodularorders', blank=False, null=True)
 
-    inproduct = models.ForeignKey(
-           'Product',
-           #limit_choices_to =
-           on_delete = models.CASCADE,
-           blank=False, null=True)
-    outproduct = models.ForeignKey(
-           'ProductWithAmount',
-           #limit_choices_to =
-           on_delete = models.CASCADE,
-           blank=True, null=True)
-    asset = models.IntegerField(default = 0)
-
-    #period to order in, in weeks
-    period = models.IntegerField(default = 0)
-
-#    def book_into_order(self, order):
-#       regulary_order_validator(self,order)
-#    
-#
-#       user = order.user
-#       week = datetime.today()
-#       
-#       newP = ProductInOrder(productAmount = outproduct, order = order)
-#       newP.save()
-#
-#       # get outproduct via Product in Order
-#       return order
-
+    content = models.OneToOneField(
+            'OrderContents',
+            parent_link = True,
+            # validator =
+            # validate order is present order
+            #limit_choices_to = {'modular': True},
+            blank=True, 
+            )
+    starttime = models.DateField()
 
     class Meta:
         ''' '''
-        verbose_name = _('regularly exchange of a product')
-        verbose_name_plural = _('regularly exchange of products')
-        unique_together = (inproduct, outproduct)
+        verbose_name = _('regularly modular order')
+        verbose_name_plural = _('regularly modular orders')
+    def __str__():
+        return _('{user} regularly orders: {content}').format(user=self.user,
+                content=content)
 
+class RegularyExchange(models.Model):
+
+    user = models.OneToOneField('User', on_delete=models.PROTECT,
+            related_name='regularyexchanges', blank=False, null=True) 
+
+    inproduct = models.ManyToManyField(
+            'Product',
+            # limit_choices_to = weekly basket products
+            # validate order is present order
+            blank=True, 
+            )
+
+    outproduct = models.OneToOneField(
+            'OrderContents',
+            parent_link = True,
+            #limit_choices_to =
+            blank=True,
+            )
+
+    asset = models.IntegerField(default = 0)
+
+    #period to order in, in weeks
+    period = models.IntegerField(default = 1)
+
+    def aprox_next(self):
+        '''Approximate Nr. of weeks to next order of week to next order.'''
+        pass 
+
+    class Meta:
+        ''' '''
+        verbose_name = _('regularly exchange')
+        verbose_name_plural = _('regularly exchanges')
+
+    def __str__():
+        instr = ', '.join([str(i) for i in self.inproduct.all()])
+        return _('''Exchange {inproduct} for {outproduct}''').format(
+                inproduct=instr,
+                outproduct=outproduct)
    
 

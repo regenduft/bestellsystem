@@ -28,7 +28,7 @@ def view_property(method):
     return method_wrapper
 
 
-def get_moday(date=None):
+def get_monday(date=None):
     '''
 
     Args:

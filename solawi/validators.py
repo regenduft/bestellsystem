@@ -3,6 +3,44 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 import json
 
+def weekly_basket_validator(basket, order):
+    '''Validate that order in weekly basket has user and week null.'''
+    pass
+
+def present_order_validator(basket, order):
+    '''Validate Present order basket is present.'''
+    pass
+
+
+def regulary_order_validator(productWamount, exchange, order):
+    '''
+    Validate if a regularly order is possible to book.
+    Args: 
+
+    Return: 
+
+    '''
+    pass
+
+def product_property_validator(Property, Product):
+    '''
+    Validate if a product property works for a product.
+    Args: 
+        Property: Property to check product off.
+        Product: Product to check.
+    Return: 
+
+    '''
+    try:
+        if not Product.product == Product:
+            raise ValidationError(
+                _('''{Prop} is not the property of
+                {Prod}.''').format(Prop=Property, Prod=Product),
+                params={'ProductProperty': Property, 'Product': Product},)
+    except AttributeError:
+        raise ValidationError( _('''Your Product Property {prop} has no attribute
+        Product.''').format(Prop=Property),
+        params={'ProductProperty': Property, 'Product': Product},) 
 
 def portion_account_validate(value):
     '''
