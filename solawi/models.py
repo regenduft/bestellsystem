@@ -39,7 +39,7 @@ class User(AbstractUser):
         verbose_name = _('user')
         verbose_name_plural = _('users')
 
-    def __str__(self):
+    def __unicode__(self):
         if self.first_name == '' and self.last_name == '':
             name = self.username
         else:
@@ -76,7 +76,7 @@ class ProductProperty(models.Model):
                                    blank=True,
                                    help_text=_('product type'))
 
-    def __str__(self):
+    def __unicode__(self):
         return _('{product} of {producttype} in {packagesize} {unit}').format(
             product=self.product,
             producttype=self.producttype,
@@ -84,8 +84,8 @@ class ProductProperty(models.Model):
             unit=self.product.unit)
 
     class Meta:
-        verbose_name = _('product and properties')
-        verbose_name_plural = _('products and properties')
+        verbose_name = _('properties of product')
+        verbose_name_plural = _('properties of products')
         unique_together = ('product', 'producttype', 'packagesize')
 
 
@@ -114,8 +114,8 @@ class Product(models.Model):
         verbose_name = _('product')
         verbose_name_plural = _('products')
 
-    def __str__(self):
-        return self.name
+    def __unicode__(self):
+        return _('{name}').format(name=self.name)
 
 
 class Depot(models.Model):
@@ -128,7 +128,7 @@ class Depot(models.Model):
         verbose_name = _('depot')
         verbose_name_plural = _('depots')
 
-    def __str__(self):
+    def __unicode__(self):
         return _('{name} at {location}').format(name=self.name,
                                                 location=self.location)
 
@@ -137,41 +137,46 @@ class ProductAmountProperty(models.Model):
     # ForeignKey or OneToOneField? parent link
     product = models.ForeignKey('Product', )
     productproperty = models.ForeignKey('ProductProperty')
-    count = models.IntegerField(default=0)
+    count = models.FloatField(default=0)
 
-    ordercontents = models.ForeignKey('OrderContents',
+    ordercontents = models.ForeignKey('OrderContent',
                                       on_delete=models.DO_NOTHING,
                                       blank=True,
                                       null=True)
 
     class Meta:
         ''' '''
-        verbose_name = _('product with amount and properties')
-        verbose_name_plural = _('products with amount and properties')
+        verbose_name = _('packed product')
+        verbose_name_plural = _('packed products')
+        unique_together = ('ordercontents' ,'product', 'productproperty')
 
-    def __str__(self):
-        week = self.order.week.strftime('%W')
-        year = self.order.week.year
-        return '{count} {pro} by {user} in {year}-{week}'.format(
-            count=self.count, pro=self.productproperty, user=self.order.user,
-            year=year, week=week)
+    def __unicode__(self):
+        return '{count} {pro} in {ordr}'.format(
+            count=self.count, pro=self.productproperty,
+            ordr=self.ordercontents)
 
 
-class OrderContents(models.Model):
+class OrderContent(models.Model):
     ''' '''
     products = models.ManyToManyField('Product',
                                       through='ProductAmountProperty',
                                       related_name='contentof',
                                       blank=True)
 
-    def __str__(self):
+    class Meta:
+        ''' '''
+        verbose_name = _('content of order')
+        verbose_name_plural = _('content of orders')
+
+    def __unicode__(self):
         ostr = ', '.join([str(i) for i in self.products.all()])
-        return _('{order} ').format(order=ostr)
+        return _('{order} (ID: {id}) ').format(order=ostr, id=self.id)
+        # return _('{order} ').format(order=self.id)
 
 
 class DefaultBasket(models.Model):
     ''' '''
-    content = models.OneToOneField('OrderContents',
+    content = models.OneToOneField('OrderContent',
                                    blank=False,
                                    null=True,
                                    parent_link=True,
@@ -188,20 +193,19 @@ class DefaultBasket(models.Model):
     class Meta:
         pass
 
-    def __str__(self):
+    def __unicode__(self):
         return _('Default Order: {name}, {order} ').format(name=self.name,
                                                            order=self.content)
 
 
 class WeeklyBasket(models.Model):
     ''' '''
-    defaultbasket = models.OneToOneField('DefaultBasket',
-                                         blank=False,
-                                         null=True,
-                                         on_delete=models.DO_NOTHING,
-                                         parent_link=True)
+    defaultbasket = models.ForeignKey('DefaultBasket',
+                                      blank=False,
+                                      null=True,
+                                      on_delete=models.DO_NOTHING)
 
-    deorders = models.OneToOneField('OrderContents',
+    deorders = models.OneToOneField('OrderContent',
                                     blank=False,
                                     null=True,
                                     on_delete=models.CASCADE)
@@ -209,13 +213,15 @@ class WeeklyBasket(models.Model):
     class Meta:
         pass
 
-    def __str__(self):
+    def __unicode__(self):
+        return _('deordered: {deor} of {defa}').format(defa=self.defaultbasket,
+                deor=self.deorders)
         pass
 
 
 class OrderBasket(models.Model):
     ''' .'''
-    content = models.OneToOneField('OrderContents',
+    content = models.OneToOneField('OrderContent',
                                    parent_link=True,
                                    blank=True,
                                    null=True)
@@ -244,7 +250,7 @@ class OrderBasket(models.Model):
         verbose_name_plural = _('ordering baskets')
         unique_together = ('week', 'user')
 
-    def __str__(self):
+    def __unicode__(self):
         week = self.week.strftime('%W')
         year = self.week.year
         return _('{year}-{week} by {user}: {contents}').format(
@@ -271,11 +277,15 @@ class RegularyOrder(models.Model):
     def aprox_next_order(self):
         pass # TODO
 
+    def book_into_order(self, orderbasket):
+        pass # TODO
+
     class Meta:
         ''' '''
         verbose_name = _('regularly order')
         verbose_name_plural = _('regularly orders')
+        unique_together = ('product', 'productproperty')
 
-    def __str__(self):
+    def __unicode__(self):
         return _('{user} regularly orders: {product}').format(user=self.user,
                                                               product=self.product)
