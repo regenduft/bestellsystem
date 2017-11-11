@@ -262,7 +262,7 @@ class WeeklyBasket(models.Model):
                                       null=True,
                                       on_delete=models.PROTECT)
 
-    deorders = models.OneToOneField('OrderContent',
+    counterorders = models.OneToOneField('OrderContent',
                                     blank=False,
                                     null=True,
                                     on_delete=models.PROTECT)
@@ -271,8 +271,8 @@ class WeeklyBasket(models.Model):
         pass # TODO
 
     def __unicode__(self):
-        return _('deordered: {deor} of {defa}').format(defa=self.defaultbasket,
-                deor=self.deorders)
+        return _('counterordered: {deor} of {defa}').format(defa=self.defaultbasket,
+                deor=self.counterorders)
         pass
 
 
