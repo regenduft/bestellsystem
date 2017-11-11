@@ -46,17 +46,17 @@ One object is a specific package size for a specific product type of a product.
 ii. The inclusion of the momentary order is needed to order anything currently, but a concept for counter-ordering and regularly ordering is needed e.g. change in counter-ordering is only effektiv for next ordering and initiating a regularly order needs first ordering date, deleting of a regularly order results in a loss of savings.
 
 ##### Validators:
-- validate Number of shares
-- validate Assets
+- validate number of shares
+- validate nssets
 
 ii. When initializing a new one ask for Depot, and type of weekly basket (e.g. sell meat).
 	
 ## for the ordering:
 
 #### OrderContent:
-The Content in products with properties of an order as a ManyToMany relation via Amount.
+The content in products with properties of an order as a ManyToMany relation via Amount.
 ##### Amount:
-The Amount of a specific product with a property in an OrderContent.
+The amount of a specific product with a property in an OrderContent.
 
 #### DefaultBasket:
 - content: an OrderContent instance
@@ -64,7 +64,7 @@ The Amount of a specific product with a property in an OrderContent.
 
 ##### WeeklyBasket:
 - counter-order: an OrderContent instance to save the momentary counter-ordered Products
-- one Default Basket
+- one DefaultBasket
 
 #### OrderBasket:
 - content: an OrderContent instance
@@ -72,7 +72,7 @@ The Amount of a specific product with a property in an OrderContent.
 - user: the "owner" of the Order
 
 #### RegularyOrder:
-- User
+- user
 - product with property
 - amount: the amount of the product to be ordered
 - savings: amount of EV still saved for this RegularyOrder
