@@ -5,7 +5,6 @@ The ii. lines are notes regarding the interface.
 We need to decide the date, when the weekly oder is closing.
 An E-Mail should be sent to persons in charge (see administration layer, Depotadmins, Oderingadmins, ...) in PDF format (or excel whatever is best)
 
-## We need in general the following entries:
 Properties which are embraced are properties which are not necessarily needed.
 
 #### General responsibilities:
