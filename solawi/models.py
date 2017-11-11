@@ -113,12 +113,14 @@ class Product(models.Model):
                             help_text=_('measuring unit,'
                                         'e.g. kg or L'))
 
-    # default value none means not modular
+    # default value none means not modular the time am regular order many not
+    # be changed
     module_time = models.IntegerField(help_text=_('module duration in weeks'),
-                                      default=1)
+                                      null=True)
     price_of_module = models.FloatField(help_text=_('modular product price'),
-                                        default=0)
-    # null means not exchangable
+                                        null=True)
+
+    # default 0 means not exchangable
     exchange_value = models.FloatField(null=True,
                                        default=0,
                                        validators=[validators.MinValueValidator(0)],
@@ -148,13 +150,10 @@ class Depot(models.Model):
                                                 location=self.location)
 
 
-class ProductAmountProperty(models.Model):
-    # ForeignKey or OneToOneField? parent link
-    product = models.ForeignKey('Product', on_delete=models.PROTECT,
-            related_name='packedin')
+class Amount(models.Model):
     productproperty = models.ForeignKey('ProductProperty',
                                         on_delete=models.PROTECT)
-    count = models.FloatField(default=0)
+    count = models.IntegerField(default=1)
 
     ordercontent = models.ForeignKey('OrderContent',
                                       related_name='contains',
@@ -172,7 +171,7 @@ class ProductAmountProperty(models.Model):
         ''' '''
         verbose_name = _('packed product')
         verbose_name_plural = _('packed products')
-        unique_together = ('ordercontent' ,'product', 'productproperty')
+        unique_together = ('ordercontent' ,'productproperty')
 
     def __unicode__(self):
         return '{count} {pro} in {ordr}'.format(
@@ -182,8 +181,8 @@ class ProductAmountProperty(models.Model):
 
 class OrderContent(models.Model):
     ''' '''
-    products = models.ManyToManyField('Product',
-                                      through='ProductAmountProperty',
+    products = models.ManyToManyField('ProductProperty',
+                                      through='Amount',
                                       related_name='contentof',
                                       blank=False)
 
@@ -323,32 +322,43 @@ class OrderBasket(models.Model):
 class RegularyOrder(models.Model):
 
     user = models.ForeignKey('User',
-                             on_delete=models.CASCADE, # TODO 
+                             on_delete=models.CASCADE,
                              related_name='regularymodularorders',
                              blank=False,
                              null=True)
 
-    product = models.ForeignKey('Product', on_delete=models.PROTECT)
     productproperty = models.ForeignKey('ProductProperty',
                                         on_delete=models.PROTECT)
-    count = models.IntegerField(default=0) # TODO validator
+    amount = models.IntegerField(default=0) 
 
-    period = models.IntegerField(default=1) # TODO validator
+    savings = models.FloatField(default=0,
+                                null=True) # TODO validate
+
+    period = models.IntegerField(default=1) # TODO validate via approx_next_order
+    # used as well to calculate the EV 
 
     # if modular product lastorder = last changing time!
     lastorder = models.DateField()
 
     def aprox_next_order(self):
+        # if bigger than a certain period never
+        # if higher than period -> warning
         pass # TODO
 
-    def book_into_order(self, orderbasket):
+    def book_into_current_order(self):
+        # case I modular Product:
+        # check if period is already reached (probably not necessary)
+        # check savings are high enough or null, if not do nothing and return
+        # book into current order of the user
         pass # TODO
 
     class Meta:
         ''' '''
         verbose_name = _('regularly order')
         verbose_name_plural = _('regularly orders')
-        unique_together = ('product', 'productproperty')
+        unique_together = ('user', 'productproperty')
+        # FIXME uniqueness should somehow refer to the product in
+        # productproperty
 
     def __unicode__(self):
         return _('{user} regularly orders: {product}').format(user=self.user,

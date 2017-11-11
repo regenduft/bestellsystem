@@ -33,7 +33,7 @@ class OrderBasketAdmin(admin.ModelAdmin):
     pass
 
 
-admin.site.register(ProductAmountProperty, ProductAdmin)
+admin.site.register(Amount, ProductAdmin)
 admin.site.register(OrderContent, OrderBasketAdmin)
 admin.site.register(RegularyOrder, DepotAdmin)
 admin.site.register(Depot, DepotAdmin)
