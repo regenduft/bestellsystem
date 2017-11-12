@@ -14,7 +14,6 @@ from solawi.models import (
     OrderBasket,
     Product,
     User,
-    WeeklyBasket,
     )
 from solawi import utils
 from solawi.utils import view_property

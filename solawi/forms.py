@@ -3,7 +3,6 @@ from django import forms
 from solawi.models import (
     User,
     OrderBasket,
-    WeeklyBasket,
 )
 
 

@@ -26,23 +26,27 @@ class User(AbstractUser):
     depot = models.ForeignKey('Depot', on_delete=models.PROTECT,
                               related_name='members', blank=True, null=True)
 
-    weeklybasket = models.OneToOneField('WeeklyBasket',
-                                        on_delete=models.PROTECT,
-                                        blank=True,
-                                        null=True,
-                                        related_name='members')
-
     countshares = models.IntegerField(blank=False,
                                       default=1,
                                       validators=[validators.MinValueValidator(0)])
+
+    defaultbasket = models.ForeignKey('DefaultBasket',
+                                      blank=False,
+                                      null=True,
+                                      on_delete=models.PROTECT)
+
+    counterorders = models.OneToOneField('OrderContent',
+                                    blank=False,
+                                    null=True,
+                                    on_delete=models.PROTECT)
 
     assets = models.IntegerField(blank=False, default=0,
                                  validators=[validators.MinValueValidator(0)])
 
     def create_present_order(self):
         try:
-            presentorder = OrderBasket.objects.create(week=utils.get_monday(),
-                user=User.objects.get(user_id=self.id))
+            presentorder = OrderBasket.objects.create(week=utils.this_week(),
+                user=self)
         except ObjectDoesExist:
             pass
 
@@ -91,6 +95,9 @@ class ProductProperty(models.Model):
                                    blank=True,
                                    help_text=_('product type'))
 
+    def ex_value(self):
+        return product.exchange_value*packagesize
+
     def __unicode__(self):
         return _('{producttype}, {product}  in {packagesize} {unit}').format(
             product=self.product,
@@ -116,8 +123,10 @@ class Product(models.Model):
     # default value none means not modular the time am regular order many not
     # be changed
     module_time = models.IntegerField(help_text=_('module duration in weeks'),
+                                      blank=True,
                                       null=True)
     price_of_module = models.FloatField(help_text=_('modular product price'),
+                                        blank=True,
                                         null=True)
 
     # default 0 means not exchangable
@@ -188,7 +197,7 @@ class OrderContent(models.Model):
 
     def account_other_in(self, other):
         '''.'''
-    #TODO TEST this!
+    #TODO TEST this! FIXME rework it!
         tomerge = self.products.all().intersection(other.products.all())
         toinclude = other.products.all().difference(self.products.all())
 
@@ -213,12 +222,6 @@ class OrderContent(models.Model):
 
         self.delete()
 
-    def calc_order_value(self):
-        value = 0
-        for selfprop in self.contains.all():
-            value += self.calc_exchange_value()
-
-        return value
 
     class Meta:
         ''' '''
@@ -253,27 +256,6 @@ class DefaultBasket(models.Model):
     def __unicode__(self):
         return _('Default Order: {name}, {order} ').format(name=self.name,
                                                            order=self.content)
-
-
-class WeeklyBasket(models.Model):
-    ''' '''
-    defaultbasket = models.ForeignKey('DefaultBasket',
-                                      blank=False,
-                                      null=True,
-                                      on_delete=models.PROTECT)
-
-    counterorders = models.OneToOneField('OrderContent',
-                                    blank=False,
-                                    null=True,
-                                    on_delete=models.PROTECT)
-
-    class Meta:
-        pass # TODO
-
-    def __unicode__(self):
-        return _('counterordered: {deor} of {defa}').format(defa=self.defaultbasket,
-                deor=self.counterorders)
-        pass
 
 
 class OrderBasket(models.Model):
@@ -329,13 +311,13 @@ class RegularyOrder(models.Model):
 
     productproperty = models.ForeignKey('ProductProperty',
                                         on_delete=models.PROTECT)
-    amount = models.IntegerField(default=0) 
+    count = models.IntegerField(default=0) 
 
     savings = models.FloatField(default=0,
                                 null=True) # TODO validate
 
     period = models.IntegerField(default=1) # TODO validate via approx_next_order
-    # used as well to calculate the EV 
+    # used as well to calculate the EV  and minimum 1
 
     # if modular product lastorder = last changing time!
     lastorder = models.DateField()
@@ -346,11 +328,23 @@ class RegularyOrder(models.Model):
         pass # TODO
 
     def book_into_current_order(self):
-        # case I modular Product:
         # check if period is already reached (probably not necessary)
+        if self.lastorder+datetime.timedelta(weeks=period)<utils.this_week():
+            return
         # check savings are high enough or null, if not do nothing and return
+        elif self.savings<self.amount*self.productproperty.ex_value():
+            return
         # book into current order of the user
-        pass # TODO
+        else:
+            # FIXME get or create?
+            current = OrderBasket.objects.get(user=self.user, week=utils.this_week())
+            Amount(count=self.count, ordercontent=current.ordercontent,
+                   productproperty=self.productproperty)
+            # if modular don't change last order
+            if self.savings==None:
+                return
+            else:
+                self.lastorder=utils.this_week()
 
     class Meta:
         ''' '''
@@ -362,4 +356,4 @@ class RegularyOrder(models.Model):
 
     def __unicode__(self):
         return _('{user} regularly orders: {product}').format(user=self.user,
-                                                              product=self.product)
+                                                              product=self.productproperty)

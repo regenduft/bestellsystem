@@ -3,7 +3,7 @@ from .models import *
 
 
 
-@admin.register(DefaultBasket, WeeklyBasket)
+@admin.register(DefaultBasket)
 class DefaultBasketAdmin(admin.ModelAdmin):
     ''' '''
     pass
