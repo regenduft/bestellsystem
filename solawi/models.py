@@ -99,7 +99,7 @@ class ProductProperty(models.Model):
         return product.exchange_value*packagesize
 
     def __unicode__(self):
-        return _('{producttype}, {product}  in {packagesize} {unit}').format(
+        return _('{packagesize} {unit} of {producttype} {product}').format(
             product=self.product,
             producttype=self.producttype,
             packagesize=self.packagesize,
@@ -129,7 +129,7 @@ class Product(models.Model):
                                         blank=True,
                                         null=True)
 
-    # default 0 means not exchangable
+    # default 0 means not exchangable or better you woun't get anything for it
     exchange_value = models.FloatField(null=True,
                                        default=0,
                                        validators=[validators.MinValueValidator(0)],
@@ -161,6 +161,7 @@ class Depot(models.Model):
 
 class Amount(models.Model):
     productproperty = models.ForeignKey('ProductProperty',
+                                        related_name='amount',
                                         on_delete=models.PROTECT)
     count = models.IntegerField(default=1)
 
@@ -183,23 +184,23 @@ class Amount(models.Model):
         unique_together = ('ordercontent' ,'productproperty')
 
     def __unicode__(self):
-        return '{count} {pro} in {ordr}'.format(
+        return '{count}'.format(
             count=self.count, pro=self.productproperty,
             ordr=self.ordercontent)
 
 
 class OrderContent(models.Model):
     ''' '''
-    products = models.ManyToManyField('ProductProperty',
+    productproperty = models.ManyToManyField('ProductProperty',
                                       through='Amount',
-                                      related_name='contentof',
+                                      related_name='isin',
                                       blank=False)
 
     def account_other_in(self, other):
         '''.'''
     #TODO TEST this! FIXME rework it!
-        tomerge = self.products.all().intersection(other.products.all())
-        toinclude = other.products.all().difference(self.products.all())
+        tomerge = self.productproperty.all().intersection(other.productproperty.all())
+        toinclude = other.productproperty.all().difference(self.productproperty.all())
 
         for prdkt in toinclude:
             prdkt.packedin.filter(product=prdkt,
@@ -229,7 +230,7 @@ class OrderContent(models.Model):
         verbose_name_plural = _('content of orders')
 
     def __unicode__(self):
-        ostr = ', '.join([str(i) for i in self.products.all()])
+        ostr = ', '.join([str(i.amount.get(ordercontent=self))+'x'+str(i) for i in self.productproperty.all()])
         return _('{order} (ID: {id}) ').format(order=ostr, id=self.id)
         # return _('{order} ').format(order=self.id)
 
@@ -254,7 +255,7 @@ class DefaultBasket(models.Model):
         pass
 
     def __unicode__(self):
-        return _('Default Order: {name}, {order} ').format(name=self.name,
+        return _('Default Order: {name}').format(name=self.name,
                                                            order=self.content)
 
 
@@ -274,13 +275,13 @@ class OrderBasket(models.Model):
                              null=True)
 
 
-    def clean(self):
-        ''' .'''
-        super().clean()
-        self.week = utils.get_monday(self.week)
-        # TODO kick product out of OrderContent if not oderable (in product an
-        # productproperties!) or don't and assert that only orderable product
-        # for this week are taken into account
+#    def clean(self):
+#        ''' .'''
+#        super().clean()
+#        self.week = utils.get_monday(self.week)
+#        # TODO kick product out of OrderContent if not oderable (in product an
+#        # productproperties!) or don't and assert that only orderable product
+#        # for this week are taken into account
 
     def save(self, *args, **kwargs):
         ''' .'''
@@ -297,7 +298,7 @@ class OrderBasket(models.Model):
     def __unicode__(self):
         week = self.week.strftime('%W')
         year = self.week.year
-        return _('{year}-{week} by {user}: {contents}').format(
+        return _('{year}-{week} by {user}').format(
             year=year, week=week, user=self.user, contents=self.content)
 
 
@@ -355,5 +356,6 @@ class RegularyOrder(models.Model):
         # productproperty
 
     def __unicode__(self):
-        return _('{user} regularly orders: {product}').format(user=self.user,
-                                                              product=self.productproperty)
+        return _('{user} regularly orders: {count}x{product}').format(user=self.user,
+                                                                      product=self.productproperty,
+                                                                      count=self.count)

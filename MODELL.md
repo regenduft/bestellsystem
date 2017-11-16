@@ -29,8 +29,8 @@ The question arises if we want a sellable flag here or if we want to manage this
 One object is a specific package size for a specific product type of a product.
 
 - Product
-- FloatField packagesize
 - flag orderable: default true
+- FloatField packagesize
 - CharField producttype
 
 #### Depot entries:
@@ -38,16 +38,17 @@ One object is a specific package size for a specific product type of a product.
 - CharField location
 
 #### SoLaWi shareholders entry (User):
-- type of weekly basket
+- type of default basket
+- counterorder (an OrderContent field)
 - Depot
 - FloatField: Number of shares (positive integer or 0,5 for small share)
-- Assets in EV (strictly positive with max capacity of 8 weekly baskets) momentary order included 
+- Assets in EV (strictly positive with max capacity to be implemented) momentary order included 
 
 ii. The inclusion of the momentary order is needed to order anything currently, but a concept for counter-ordering and regularly ordering is needed e.g. change in counter-ordering is only effektiv for next ordering and initiating a regularly order needs first ordering date, deleting of a regularly order results in a loss of savings.
 
 ##### Validators:
 - validate number of shares
-- validate nssets
+- validate assets
 
 ii. When initializing a new one ask for Depot, and type of weekly basket (e.g. sell meat).
 	
@@ -61,10 +62,6 @@ The amount of a specific product with a property in an OrderContent.
 #### DefaultBasket:
 - content: an OrderContent instance
 - CharField name
-
-##### WeeklyBasket:
-- counter-order: an OrderContent instance to save the momentary counter-ordered Products
-- one DefaultBasket
 
 #### OrderBasket:
 - content: an OrderContent instance
