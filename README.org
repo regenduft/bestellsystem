@@ -34,5 +34,7 @@ Start the app with:
 ** Usage
 There are not many views yet, but you can create data objects in the admin view.
 Go to http://127.0.0.1:8000/admin and login with your super-user.
+Ther is no DataBase in this Repo. Therefore you wont be able to check most of the views till you add some Data through your admin login.
 
-** TODO Data Model
+** Data Model
+For the Data Model look into MODELL.md
