@@ -17,27 +17,35 @@ from solawi.models import (
     )
 from solawi import utils
 from solawi.utils import view_property
+from datetime import date
+from django.http import HttpResponse
 
+def test(request, *args, **kwargs):
+    return HttpResponse(' ;'.join(i for i in args)+' ;'.join(i for i in kwargs))
+def order(request, username, year, week):
+    thisuser = get_object_or_404(User, username=username)
+    return HttpResponse( get_object_or_404(OrderBasket, user=thisuser,
+            week=utils.date_from_week(year=year, week=week)))
 #
-#@method_decorator(login_required, name='dispatch')
-#class BaseMemberView(generic.TemplateView):
-#    ''' '''
-#    template_name = 'base_user.html'
-#
-#    @view_property
-#    def user(self):
-#        ''' '''
-#        return self.request.user
-#
-#    @view_property
-#    def controls(self):
-#        ''' '''
-#        controls = {
-#            'depot': '/depot/{depot}/'.format(depot=self.user.depot.id)
-#            }
-#        return controls
-#
-#
+@method_decorator(login_required, name='dispatch')
+class BaseMemberView(generic.TemplateView):
+    ''' '''
+    template_name = 'base_user.html'
+
+    @view_property
+    def user(self):
+        ''' '''
+        return self.request.user
+
+    @view_property
+    def controls(self):
+        ''' '''
+        controls = {
+            'depot': '/depot/{depot}/'.format(depot=self.user.depot.name)
+            }
+        return controls
+
+
 #@method_decorator(login_required, name='dispatch')
 #class WeekView(BaseMemberView):
 #    ''' '''
@@ -131,18 +139,18 @@ from solawi.utils import view_property
 #        return controls
 #
 #
-#@method_decorator(login_required, name='dispatch')
-#class DepotView(BaseMemberView):
-#    ''' '''
-#    template_name = 'depot.html'
-#
-#    @view_property
-#    def depot(self):
-#        ''' '''
-#        self.depot_id = self.kwargs.get('depot_id', None)
-#        return get_object_or_404(Depot, id=self.depot_id)
-#
-#    @view_property
-#    def members(self):
-#        ''' '''
-#        return self.depot.members.all()
+@method_decorator(login_required, name='dispatch')
+class DepotView(BaseMemberView):
+    ''' '''
+    template_name = 'depot.html'
+
+    @view_property
+    def depot(self):
+        ''' '''
+        self.depot_id = self.kwargs.get('depotname', None)
+        return get_object_or_404(Depot, name=self.depot_id)
+
+    @view_property
+    def members(self):
+        ''' '''
+        return self.depot.members.all()
