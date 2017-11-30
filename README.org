@@ -13,9 +13,9 @@ $ cd solawi
 
 *** Initialize the virtual environment and install dependencies
 #+BEGIN_SRC shell
-solawi $ virtualenv -p python3.5 venv
+solawi $ virtualenv -p python3 venv
 solawi $ source venv/bin/activate
-(venv) solawi $ pip install django
+(venv) solawi $ pip3 install django
 #+END_SRC
 
 *** Start the app
