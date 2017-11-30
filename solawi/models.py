@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import datetime
@@ -14,8 +14,6 @@ from solawi.validators import *
 from django.utils.translation import ugettext_lazy as _
 import json
 from solawi import utils
-
-# TODO Work on unicode problems try Gemüse as Product
 
 class User(AbstractUser):
     ''' '''
@@ -40,8 +38,60 @@ class User(AbstractUser):
                                     null=True,
                                     on_delete=models.PROTECT)
 
+    # validate couterorders is out of default basket
+
     assets = models.IntegerField(blank=False, default=0,
                                  validators=[validators.MinValueValidator(0)])
+
+    def add_to_present_order(self, prdctprop, count=1):
+        value = prdctprop.exchange_value*count
+        present = OrderBasket.objects.get(user=self, week=utils.this_week())
+
+        if not (prdctprop.orderable and prdctprop.product.orderable):
+            # raise validation error should not be possible but not orderable
+            pass
+        elif self.assets < value:
+            # raise validation error not enough assets
+            pass
+        else:
+            amount, created = Amount.objects.get_or_create(
+                    productproperty=prdctprop, 
+                    ordercontent=present.content,
+                    defaults={'count': count})
+
+            if not created:
+                amount.count += count
+                amount.save()
+
+            self.assets -= value
+            self.save()
+                            
+    def sub_from_present_order(self, prdctprop, count=None):
+        value = prdctprop.exchange_value*count
+        present = OrderBasket.objects.get(user=self, week=utils.this_week())
+
+        try:
+
+            amount = Amount.objects.get(productproperty=prdctprop, 
+                                        ordercontent=present.content)
+
+            if amount.count > count:
+                self.assets += value
+                # TODO maybe self.clean() with clean cleans to big assets
+                self.save()
+                amount.count -= count
+                amount.save()
+            else:
+                self.assets += amount.exchange_value()
+                self.save()
+                # TODO maybe self.clean() with clean cleans to big assets
+                amount.delete()
+
+        except Amount.DoesNotExist:
+            # should not happen #TODO
+            pass
+
+
 
     def create_present_order(self):
         try:
@@ -56,7 +106,7 @@ class User(AbstractUser):
         verbose_name = _('user')
         verbose_name_plural = _('users')
 
-    def __unicode__(self):
+    def __str__(self):
         if self.first_name == '' and self.last_name == '':
             name = self.username
         else:
@@ -84,7 +134,7 @@ class User(AbstractUser):
 class ProductProperty(models.Model):
     product = models.ForeignKey('Product',
                                 on_delete=models.CASCADE,
-                                related_name='productproperties',
+                                related_name='properties',
                                 blank=False)
 
     orderable = models.BooleanField(default=True)
@@ -95,10 +145,10 @@ class ProductProperty(models.Model):
                                    blank=True,
                                    help_text=_('product type'))
 
-    def ex_value(self):
+    def exchange_value(self):
         return product.exchange_value*packagesize
 
-    def __unicode__(self):
+    def __str__(self):
         return _('{packagesize} {unit} of {producttype} {product}').format(
             product=self.product,
             producttype=self.producttype,
@@ -140,7 +190,7 @@ class Product(models.Model):
         verbose_name = _('product')
         verbose_name_plural = _('products')
 
-    def __unicode__(self):
+    def __str__(self):
         return _('{name}').format(name=self.name)
 
 
@@ -154,7 +204,7 @@ class Depot(models.Model):
         verbose_name = _('depot')
         verbose_name_plural = _('depots')
 
-    def __unicode__(self):
+    def __str__(self):
         return _('{name} at {location}').format(name=self.name,
                                                 location=self.location)
 
@@ -171,11 +221,8 @@ class Amount(models.Model):
                                       blank=False,
                                       null=True)
 
-    def calc_exchange_value(self):
-        if product.orderable and productproperty.orderable:
-            return self.count*self.product.exchange_value
-        else:
-            return 0 # TODO document this!
+    def exchange_value(self):
+        return self.count*self.productproperty.exchange_value
 
     class Meta:
         ''' '''
@@ -183,7 +230,7 @@ class Amount(models.Model):
         verbose_name_plural = _('packed products')
         unique_together = ('ordercontent' ,'productproperty')
 
-    def __unicode__(self):
+    def __str__(self):
         return '{count}'.format(
             count=self.count, pro=self.productproperty,
             ordr=self.ordercontent)
@@ -196,26 +243,37 @@ class OrderContent(models.Model):
                                       related_name='isin',
                                       blank=False)
 
-    def account_other_in(self, other):
-        '''.'''
-    #TODO TEST this! FIXME rework it!
-        tomerge = self.productproperty.all().intersection(other.productproperty.all())
-        toinclude = other.productproperty.all().difference(self.productproperty.all())
+    # def add(self, productproperty, amount):
+        # add or
+        # create new or
+        # Error already in order with other product property
+        # pass
 
+    # def sub(self, productproperty, amount):
+        # pass
+
+    def remove(self, product):
+        pass
+
+    def __iadd__(self, other):
+        '''! Ignore not oderables.'''
+    #TODO TEST this! FIXME rework it!
+
+        toinclude = other.productproperty.all().difference(self.productproperty.all())
         for prdkt in toinclude:
-            prdkt.packedin.filter(product=prdkt,
-                    ordercontent=other).update(ordercontent=self)
+            prdkt.amount.filter(ordercontent=other).update(ordercontent=self)
+
+        tomerge = self.productproperty.all().intersection(other.productproperty.all())
         for prdkt in tomerge:
 
-            for othrprop in other.contains.filter(product=prdkt):
+            for othrprop in other.contains.filter(productproperty=prdkt):
                 try: 
                     selfprop = self.contains.get(ordercontent=self,
-                            productproperty=othrprop.productproperty,
-                            product=othrprop.product) # may be prdkt as well
+                            productproperty=othrprop.productproperty)
+
                 except ObjectDoesNotExist:
-                    prdkt.packedin.filter(product=prdkt,
-                            productproperty=othrprop.productproperty,
-                            ordercontent=other).update(ordercontent=self)
+                    prdkt.amount.filter(productproperty=othrprop.productproperty,
+                                        ordercontent=other).update(ordercontent=self)
                 else:
                     selfprop.count += othrprop.count()
                     selfprop.save()
@@ -223,13 +281,17 @@ class OrderContent(models.Model):
 
         self.delete()
 
+    def __isub__(self, other):
+        '''.'''
+        pass
+
 
     class Meta:
         ''' '''
         verbose_name = _('content of order')
         verbose_name_plural = _('content of orders')
 
-    def __unicode__(self):
+    def __str__(self):
         ostr = ', '.join([str(i.amount.get(ordercontent=self))+'x'+str(i) for i in self.productproperty.all()])
         return _('{order} (ID: {id}) ').format(order=ostr, id=self.id)
         # return _('{order} ').format(order=self.id)
@@ -240,11 +302,12 @@ class DefaultBasket(models.Model):
     content = models.OneToOneField('OrderContent',
                                    blank=False,
                                    null=True,
+                                   parent_link=True,
                                    # default=OrderContent.objects.create(),
                                    # TODO limit_choices_to without
                                    # Order basket functions
-                                   on_delete=models.PROTECT,
-                                   related_name='defaultordering')
+                                   # on_delete=models.PROTECT,
+                                   related_name='defaultbaskets')
     name = models.CharField(max_length=15,
                             blank=False,
                             unique=True,
@@ -254,9 +317,14 @@ class DefaultBasket(models.Model):
     class Meta:
         pass
 
-    def __unicode__(self):
+    def __str__(self):
         return _('Default Order: {name}').format(name=self.name,
                                                            order=self.content)
+    def __iadd__(self, other):
+        self.content += other.content
+
+    def __isub__(self, other):
+        self.content -= other.content
 
 
 class OrderBasket(models.Model):
@@ -264,8 +332,10 @@ class OrderBasket(models.Model):
     content = models.OneToOneField('OrderContent',
                                    blank=False,
                                    null=True,
+                                   parent_link=True,
                                    # default=OrderContent.objects.create(),
-                                   on_delete=models.PROTECT)
+                                   # on_delete=models.PROTECT,
+                                   related_name='orderbaskets')
     week = models.DateField(blank=False,
                             null=True)
     user = models.ForeignKey('User',
@@ -274,6 +344,11 @@ class OrderBasket(models.Model):
                              blank=False,
                              null=True)
 
+    def __iadd__(self, other):
+        self.content += other.content
+
+    def __isub__(self, other):
+        self.content -= other.content
 
 #    def clean(self):
 #        ''' .'''
@@ -295,7 +370,7 @@ class OrderBasket(models.Model):
         verbose_name_plural = _('ordering baskets')
         unique_together = ('week', 'user')
 
-    def __unicode__(self):
+    def __str__(self):
         week = self.week.strftime('%W')
         year = self.week.year
         return _('{year}-{week} by {user}').format(
@@ -328,24 +403,6 @@ class RegularyOrder(models.Model):
         # if higher than period -> warning
         pass # TODO
 
-    def book_into_current_order(self):
-        # check if period is already reached (probably not necessary)
-        if self.lastorder+datetime.timedelta(weeks=period)<utils.this_week():
-            return
-        # check savings are high enough or null, if not do nothing and return
-        elif self.savings<self.amount*self.productproperty.ex_value():
-            return
-        # book into current order of the user
-        else:
-            # FIXME get or create?
-            current = OrderBasket.objects.get(user=self.user, week=utils.this_week())
-            Amount(count=self.count, ordercontent=current.ordercontent,
-                   productproperty=self.productproperty)
-            # if modular don't change last order
-            if self.savings==None:
-                return
-            else:
-                self.lastorder=utils.this_week()
 
     class Meta:
         ''' '''
@@ -355,7 +412,7 @@ class RegularyOrder(models.Model):
         # FIXME uniqueness should somehow refer to the product in
         # productproperty
 
-    def __unicode__(self):
+    def __str__(self):
         return _('{user} regularly orders: {count}x{product}').format(user=self.user,
                                                                       product=self.productproperty,
                                                                       count=self.count)
