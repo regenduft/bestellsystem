@@ -44,62 +44,40 @@ class User(AbstractUser):
                                  validators=[validators.MinValueValidator(0)])
 
     def add_to_present_order(self, prdctprop, count=1):
+        '''Add a product to the present order.'''
         value = prdctprop.exchange_value*count
         present = OrderBasket.objects.get(user=self, week=utils.this_week())
 
         if not (prdctprop.orderable and prdctprop.product.orderable):
-            # raise validation error should not be possible but not orderable
+            # TODO raise validation error should not be possible but not orderable
             pass
         elif self.assets < value:
-            # raise validation error not enough assets
+            # TODO raise validation error not enough assets
             pass
         else:
-            amount, created = Amount.objects.get_or_create(
-                    productproperty=prdctprop, 
-                    ordercontent=present.content,
-                    defaults={'count': count})
-
-            if not created:
-                amount.count += count
-                amount.save()
+            value, created = present.add_or_create_product(prdctprop, count)
 
             self.assets -= value
             self.save()
                             
     def sub_from_present_order(self, prdctprop, count=None):
-        value = prdctprop.exchange_value*count
+        '''Remove a product from the present order.'''
         present = OrderBasket.objects.get(user=self, week=utils.this_week())
 
-        try:
+        value, existed = present.sub_or_delete_product(prdctprop, count)
 
-            amount = Amount.objects.get(productproperty=prdctprop, 
-                                        ordercontent=present.content)
+        if existed:
+            self.assets += value
+            # TODO maybe self.clean() with clean cleans to big assets
+            self.save()
+        else:
+            # TODO raise did not exit
 
-            if amount.count > count:
-                self.assets += value
-                # TODO maybe self.clean() with clean cleans to big assets
-                self.save()
-                amount.count -= count
-                amount.save()
-            else:
-                self.assets += amount.exchange_value()
-                self.save()
-                # TODO maybe self.clean() with clean cleans to big assets
-                amount.delete()
-
-        except Amount.DoesNotExist:
-            # should not happen #TODO
-            pass
-
-
-
-    def create_present_order(self):
-        try:
-            presentorder = OrderBasket.objects.create(week=utils.this_week(),
-                user=self)
-        except ObjectDoesExist:
-            pass
-
+    def create_current_order(self):
+        # TODO Implement
+        # but somewhere else and implement create sub_from and add_to order in
+        # order with option to account in users assets
+        pass
 
     class Meta:
         ''' '''
@@ -222,13 +200,14 @@ class Amount(models.Model):
                                       null=True)
 
     def exchange_value(self):
-        return self.count*self.productproperty.exchange_value
+        return self.count*self.productproperty.exchange_value()
 
     class Meta:
         ''' '''
         verbose_name = _('packed product')
         verbose_name_plural = _('packed products')
         unique_together = ('ordercontent' ,'productproperty')
+        # FIXME decide if uniqueness should be for product
 
     def __str__(self):
         return '{count}'.format(
@@ -238,52 +217,82 @@ class Amount(models.Model):
 
 class OrderContent(models.Model):
     ''' '''
-    productproperty = models.ManyToManyField('ProductProperty',
+    productproperties = models.ManyToManyField('ProductProperty',
                                       through='Amount',
                                       related_name='isin',
                                       blank=False)
 
-    # def add(self, productproperty, amount):
-        # add or
-        # create new or
-        # Error already in order with other product property
-        # pass
+    def add_or_create_product(self, prdctprop, count=1):
+        amount, created = Amount.objects.get_or_create(
+                productproperty=prdctprop, 
+                ordercontent=self
+                defaults={'count': count})
 
-    # def sub(self, productproperty, amount):
-        # pass
+        if not created:
+            amount.count += count
+            amount.save()
+
+        return amount.exchange_value(), created
+
+    def sub_or_delete_product(self, prdctprop, count=None):
+        '''Subtract count or delete productproperty form ordercontent.
+        
+        returns: (min(amount.echange_value, prdctprop.exchange_value) , existed) of amount'''
+        try:
+            amount = Amount.objects.get(productproperty=prdctprop, 
+                                        ordercontent=present.content)
+            value = amount.exchange_value()
+
+            if amount.count > count:
+                # TODO maybe self.clean() with clean cleans to big assets
+                amount.count -= count
+                amount.save()
+
+                return prdctprop.exchange_value(), True
+
+            else:
+                amount.delete()
+
+                return value, True
+
+
+        except Amount.DoesNotExist:
+            # should not happen #TODO
+            return None, False
+
 
     def remove(self, product):
         pass
 
-    def __iadd__(self, other):
-        '''! Ignore not oderables.'''
-    #TODO TEST this! FIXME rework it!
-
-        toinclude = other.productproperty.all().difference(self.productproperty.all())
-        for prdkt in toinclude:
-            prdkt.amount.filter(ordercontent=other).update(ordercontent=self)
-
-        tomerge = self.productproperty.all().intersection(other.productproperty.all())
-        for prdkt in tomerge:
-
-            for othrprop in other.contains.filter(productproperty=prdkt):
-                try: 
-                    selfprop = self.contains.get(ordercontent=self,
-                            productproperty=othrprop.productproperty)
-
-                except ObjectDoesNotExist:
-                    prdkt.amount.filter(productproperty=othrprop.productproperty,
-                                        ordercontent=other).update(ordercontent=self)
-                else:
-                    selfprop.count += othrprop.count()
-                    selfprop.save()
-                    othrprop.delete()
-
-        self.delete()
-
-    def __isub__(self, other):
-        '''.'''
-        pass
+#    def __iadd__(self, other):
+#        '''! Ignore not oderables.'''
+#        #TODO TEST this! FIXME rework it!
+#
+#        toinclude = other.productproperty.all().difference(self.productproperty.all())
+#        for prdkt in toinclude:
+#            prdkt.amount.filter(ordercontent=other).update(ordercontent=self)
+#
+#        tomerge = self.productproperty.all().intersection(other.productproperty.all())
+#        for prdkt in tomerge:
+#
+#            for othrprop in other.contains.filter(productproperty=prdkt):
+#                try: 
+#                    selfprop = self.contains.get(ordercontent=self,
+#                            productproperty=othrprop.productproperty)
+#
+#                except ObjectDoesNotExist:
+#                    prdkt.amount.filter(productproperty=othrprop.productproperty,
+#                                        ordercontent=other).update(ordercontent=self)
+#                else:
+#                    selfprop.count += othrprop.count()
+#                    selfprop.save()
+#                    othrprop.delete()
+#
+#        self.delete()
+#
+#    def __isub__(self, other):
+#        '''.'''
+#        pass
 
 
     class Meta:
@@ -320,11 +329,11 @@ class DefaultBasket(models.Model):
     def __str__(self):
         return _('Default Order: {name}').format(name=self.name,
                                                            order=self.content)
-    def __iadd__(self, other):
-        self.content += other.content
-
-    def __isub__(self, other):
-        self.content -= other.content
+#    def __iadd__(self, other):
+#        self.content += other.content
+#
+#    def __isub__(self, other):
+#        self.content -= other.content
 
 
 class OrderBasket(models.Model):
@@ -344,11 +353,11 @@ class OrderBasket(models.Model):
                              blank=False,
                              null=True)
 
-    def __iadd__(self, other):
-        self.content += other.content
-
-    def __isub__(self, other):
-        self.content -= other.content
+#    def __iadd__(self, other):
+#        self.content += other.content
+#
+#    def __isub__(self, other):
+#        self.content -= other.content
 
 #    def clean(self):
 #        ''' .'''
@@ -358,6 +367,8 @@ class OrderBasket(models.Model):
 #        # productproperties!) or don't and assert that only orderable product
 #        # for this week are taken into account
 
+    # TODO replace get_moday with get packing day and do this for all other
+    # contents aswell
     def save(self, *args, **kwargs):
         ''' .'''
         # Set every date on Monday!
@@ -381,7 +392,7 @@ class RegularyOrder(models.Model):
 
     user = models.ForeignKey('User',
                              on_delete=models.CASCADE,
-                             related_name='regularymodularorders',
+                             related_name='regularyorders',
                              blank=False,
                              null=True)
 
@@ -398,10 +409,48 @@ class RegularyOrder(models.Model):
     # if modular product lastorder = last changing time!
     lastorder = models.DateField()
 
-    def aprox_next_order(self):
-        # if bigger than a certain period never
-        # if higher than period -> warning
-        pass # TODO
+    def exchange_value(self):
+        return self.count*self.productproperty.exchange_value()
+
+    def ready(self):
+        return self.exchange_value()>=self.savings() or self.savings=None
+
+    def orderable(self):
+        return (self.ready() and self.productproperty.orderable and
+                self.productproperty.product.orderable and
+                self.lastorder+datetime.timedelta(weeks=self.period-1)<utils.this_week())
+
+    def current_counterorder_share(self):
+        # TODO test if summ of all current counterorder shares is one!
+        regord = self.user.regularyorders.objects.all()
+        evSum, regSumPeriod = 0, 0
+        for reg in regord:
+            evSum += reg.exchange_value()
+            regSumPeriod += reg.period()
+
+        return (self.exchange_value()/self.period)*(evSum/regSumPeriod)
+
+    # TODO changingtime for modular validate savings = None if
+    # about productproperty.product.modular =True
+    def approx_next_order(self):
+        if self.ready():
+            return self.lastorder+datetime.timedelta(weeks=self.period)
+        else:
+            # TODO Send warning not enough counterorders
+            ccs = current_counterorder_share()
+            haveings = sum([ amount.exchange_value() for amount in
+                self.user.counterorders.contains.objects.all()])
+            # needs to be saved
+            rest = (savings - self.exchange_value())
+            # approx weeks left till order
+            # round integer up without import any math
+            left = (rest // ccs + (rest % ccs > 0))
+            if left > 3*self.period:
+                # TODO Document behavior or just send warning or raise
+                # Validation Error
+                return None
+            else: 
+                return self.lastorder+datetime.timedelta(weeks=left)
 
 
     class Meta:
@@ -409,8 +458,7 @@ class RegularyOrder(models.Model):
         verbose_name = _('regularly order')
         verbose_name_plural = _('regularly orders')
         unique_together = ('user', 'productproperty')
-        # FIXME uniqueness should somehow refer to the product in
-        # productproperty
+        # FIXME decide if uniqueness should be for product
 
     def __str__(self):
         return _('{user} regularly orders: {count}x{product}').format(user=self.user,
