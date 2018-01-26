@@ -16,7 +16,7 @@ Including another URLconf
 from django.conf.urls import include, url
 from django.contrib import admin
 from . import views
-from views import BaseMemberView
+from .views import BaseMemberView
 
 
 urlpatterns = [

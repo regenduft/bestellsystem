@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import datetime
@@ -17,6 +17,7 @@ from solawi import utils
 
 class User(AbstractUser):
     ''' '''
+    # probably change this field into member since/ next order after vecation
     is_member = models.BooleanField(_('Make a paying member'), default=True)
     is_supervisor = models.BooleanField(_('Make a depot supervisor'),
                                         default=False)
@@ -33,45 +34,27 @@ class User(AbstractUser):
                                       null=True,
                                       on_delete=models.PROTECT)
 
-    counterorders = models.OneToOneField('OrderContent',
-                                    blank=False,
-                                    null=True,
-                                    on_delete=models.PROTECT)
-
-    # validate couterorders is out of default basket
-
     assets = models.IntegerField(blank=False, default=0,
                                  validators=[validators.MinValueValidator(0)])
 
     def add_to_present_order(self, prdctprop, count=1):
         '''Add a product to the present order.'''
-        value = prdctprop.exchange_value*count
-        present = OrderBasket.objects.get(user=self, week=utils.this_week())
-
-        if not (prdctprop.orderable and prdctprop.product.orderable):
-            # TODO raise validation error should not be possible but not orderable
+        try:
+            present = self.orderbaskets.objects.get(week=utils.this_week())
+            present.add_to_order(prdctprop, count)
+        except DoesNotExist:
             pass
-        elif self.assets < value:
-            # TODO raise validation error not enough assets
-            pass
-        else:
-            value, created = present.add_or_create_product(prdctprop, count)
-
-            self.assets -= value
-            self.save()
+            #TODO Handel exception if not existent, create or do  other stuff
                             
     def sub_from_present_order(self, prdctprop, count=None):
         '''Remove a product from the present order.'''
-        present = OrderBasket.objects.get(user=self, week=utils.this_week())
+        try:
+            present = self.orderbaskets.objects.get(week=utils.this_week())
+            present.sub_from_order(prdctprop, count)
 
-        value, existed = present.sub_or_delete_product(prdctprop, count)
-
-        if existed:
-            self.assets += value
-            # TODO maybe self.clean() with clean cleans to big assets
-            self.save()
-        else:
-            # TODO raise did not exit
+        except DoesNotExist:
+            pass
+            #TODO Handel exception if not existent, create or do  other stuff
 
     def create_current_order(self):
         # TODO Implement
@@ -123,6 +106,7 @@ class ProductProperty(models.Model):
                                    blank=True,
                                    help_text=_('product type'))
 
+    @property
     def exchange_value(self):
         return product.exchange_value*packagesize
 
@@ -199,8 +183,13 @@ class Amount(models.Model):
                                       blank=False,
                                       null=True)
 
+    @property
     def exchange_value(self):
-        return self.count*self.productproperty.exchange_value()
+        return self.count*self.productproperty.exchange_value
+
+    @property
+    def orderable(self):
+        return self.productproperty.orderable and self.productproperty.product.orderable # FIXME max orderable at once < ...
 
     class Meta:
         ''' '''
@@ -225,36 +214,33 @@ class OrderContent(models.Model):
     def add_or_create_product(self, prdctprop, count=1):
         amount, created = Amount.objects.get_or_create(
                 productproperty=prdctprop, 
-                ordercontent=self
+                ordercontent=self,
                 defaults={'count': count})
 
         if not created:
             amount.count += count
             amount.save()
 
-        return amount.exchange_value(), created
+        return amount.exchange_value, created
 
     def sub_or_delete_product(self, prdctprop, count=None):
         '''Subtract count or delete productproperty form ordercontent.
-        
+
+        defaults count=None deleates product
         returns: (min(amount.echange_value, prdctprop.exchange_value) , existed) of amount'''
         try:
             amount = Amount.objects.get(productproperty=prdctprop, 
                                         ordercontent=present.content)
-            value = amount.exchange_value()
+            value = amount.exchange_value
 
             if amount.count > count:
                 # TODO maybe self.clean() with clean cleans to big assets
                 amount.count -= count
                 amount.save()
-
-                return prdctprop.exchange_value(), True
-
+                return prdctprop.exchange_value, True
             else:
                 amount.delete()
-
                 return value, True
-
 
         except Amount.DoesNotExist:
             # should not happen #TODO
@@ -301,7 +287,8 @@ class OrderContent(models.Model):
         verbose_name_plural = _('content of orders')
 
     def __str__(self):
-        ostr = ', '.join([str(i.amount.get(ordercontent=self))+'x'+str(i) for i in self.productproperty.all()])
+        ostr = ', '.join([str(i.product)[:3] for i
+            in self.productproperties.all()])
         return _('{order} (ID: {id}) ').format(order=ostr, id=self.id)
         # return _('{order} ').format(order=self.id)
 
@@ -344,14 +331,48 @@ class OrderBasket(models.Model):
                                    parent_link=True,
                                    # default=OrderContent.objects.create(),
                                    # on_delete=models.PROTECT,
-                                   related_name='orderbaskets')
+                                   related_name='order')
     week = models.DateField(blank=False,
                             null=True)
+
     user = models.ForeignKey('User',
                              on_delete=models.CASCADE,
-                             related_name='orders',
+                             related_name='orderbaskets',
                              blank=False,
                              null=True)
+
+    def add_to_order(self, prdctprop, count, account=True):
+        '''Add a product to order.'''
+        value = prdctprop.exchange_value*count
+
+        if not (prdctprop.orderable and prdctprop.product.orderable):
+            # TODO raise validation error should not be possible but not orderable
+            pass
+        elif account:
+            if self.user.assets < value:
+                # TODO raise validation error not enough assets
+                pass
+            else:
+                value, created = self.content.add_or_create_product(prdctprop, count)
+
+                self.user.assets -= value
+                self.user.save()
+        else:
+            self.content.add_or_create_product(prdctprop, count)
+
+    def sub_from_order(self, prdctprop, count, account=True):
+        '''Subtract or delete a product from order.'''
+
+        value, existed = self.content.sub_or_delete_product(prdctprop, count)
+
+        if existed and account:
+            self.user.assets += value
+            # TODO maybe self.clean() with clean cleans to big assets
+            self.user.save()
+        elif not existed:
+            pass
+            # TODO raise did not exit
+
 
 #    def __iadd__(self, other):
 #        self.content += other.content
@@ -382,10 +403,8 @@ class OrderBasket(models.Model):
         unique_together = ('week', 'user')
 
     def __str__(self):
-        week = self.week.strftime('%W')
-        year = self.week.year
-        return _('{year}-{week} by {user}').format(
-            year=year, week=week, user=self.user, contents=self.content)
+        return _('{week} by {user}').format(
+            week=self.week.strftime('%Y-%W'), user=self.user)
 
 
 class RegularyOrder(models.Model):
@@ -400,57 +419,75 @@ class RegularyOrder(models.Model):
                                         on_delete=models.PROTECT)
     count = models.IntegerField(default=0) 
 
-    savings = models.FloatField(default=0,
+    #savings = models.FloatField(default=0,
                                 null=True) # TODO validate
 
-    period = models.IntegerField(default=1) # TODO validate via approx_next_order
-    # used as well to calculate the EV  and minimum 1
+    # period the user wants to order in
+    # indicates conterOrder if negative see property is_counterorder
+    period = models.IntegerField(default=1) # TODO validate via
+    #approx_next_order or the current counterorder share
 
     # if modular product lastorder = last changing time!
     lastorder = models.DateField()
 
+    lastaccses = models.DateField(add_new=True)
+
+    @property
+    def is_counterorder(self):
+        '''True if is self is counterorder else order.'''
+        return self.period <= 0
+
+    @property
     def exchange_value(self):
-        return self.count*self.productproperty.exchange_value()
+        return self.count*self.productproperty.exchange_value
 
+    @property
     def ready(self):
-        return self.exchange_value()>=self.savings() or self.savings=None
+        '''.'''
+        return self.lastorder+datetime.timedelta(weeks=self.period-1)<utils.this_week()
 
+    @property
     def orderable(self):
-        return (self.ready() and self.productproperty.orderable and
-                self.productproperty.product.orderable and
-                self.lastorder+datetime.timedelta(weeks=self.period-1)<utils.this_week())
+        return (self.productproperty.orderable and
+                self.productproperty.product.orderable)
 
-    def current_counterorder_share(self):
-        # TODO test if summ of all current counterorder shares is one!
-        regord = self.user.regularyorders.objects.all()
-        evSum, regSumPeriod = 0, 0
-        for reg in regord:
-            evSum += reg.exchange_value()
-            regSumPeriod += reg.period()
+#    def current_counterorder_share(self, regords=None):
+#        # TODO test if summ of all current counterorder shares is one!
+#        if regords == None:
+#            regord = self.user.regularyorders.objects.all().prefetch_related('productproperty__product')
+#
+#        evSum, regSumPeriod = 0, 0
+#        for reg in regords:
+#            evSum += reg.exchange_value
+#            regSumPeriod += reg.period()
+#
+#        return (self.exchange_value/self.period)*(evSum/regSumPeriod)
+#
+#    # TODO changingtime for modular validate savings = None if
+#    # about productproperty.product.modular =True
+#    def approx_next_order(self):
+#        if self.ready():
+#            return _('surely'), self.lastorder+datetime.timedelta(weeks=self.period)
+#        else:
+#            # TODO Send warning not enough counterorder
+#            # calculate current counterorder share
+#            cc = current_counterorder_share()*sum([ amount.exchange_value for amount in
+#                self.user.counterorder.contains.all()])
+#
+#            # needs to be saved
+#            rest = (savings - self.exchange_value)
+#            # approx weeks left till order
+#            # round integer up without import any math
+#            left = (rest // ccs + (rest % ccs > 0))
+#            if left > 3*self.period:
+#                # TODO Document behavior or just send warning or raise
+#                # Validation Error
+#                return _('never'), None
+#            elif:
+#                return _('longer than wished'), self.lastorder+datetime.timedelta(weeks=left)
+#            else: 
+#                return _('approximately'), self.lastorder+datetime.timedelta(weeks=left)
 
-        return (self.exchange_value()/self.period)*(evSum/regSumPeriod)
-
-    # TODO changingtime for modular validate savings = None if
-    # about productproperty.product.modular =True
-    def approx_next_order(self):
-        if self.ready():
-            return self.lastorder+datetime.timedelta(weeks=self.period)
-        else:
-            # TODO Send warning not enough counterorders
-            ccs = current_counterorder_share()
-            haveings = sum([ amount.exchange_value() for amount in
-                self.user.counterorders.contains.objects.all()])
-            # needs to be saved
-            rest = (savings - self.exchange_value())
-            # approx weeks left till order
-            # round integer up without import any math
-            left = (rest // ccs + (rest % ccs > 0))
-            if left > 3*self.period:
-                # TODO Document behavior or just send warning or raise
-                # Validation Error
-                return None
-            else: 
-                return self.lastorder+datetime.timedelta(weeks=left)
 
 
     class Meta:
