@@ -1,4 +1,4 @@
-!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import datetime
@@ -23,7 +23,7 @@ class User(AbstractUser):
                                         default=False)
 
     depot = models.ForeignKey('Depot', on_delete=models.PROTECT,
-                              related_name='members', blank=True, null=True)
+                              related_name='members', blank=False, null=True)
 
     countshares = models.IntegerField(blank=False,
                                       default=1,
@@ -35,7 +35,8 @@ class User(AbstractUser):
                                       on_delete=models.PROTECT)
 
     assets = models.IntegerField(blank=False, default=0,
-                                 validators=[validators.MinValueValidator(0)])
+                                 validators=[validators.MinValueValidator(0),
+                                             validators.MaxValueValidator(settings.MAX_USER_ASSET)])
 
     def add_to_present_order(self, prdctprop, count=1):
         '''Add a product to the present order.'''
@@ -56,12 +57,6 @@ class User(AbstractUser):
             pass
             #TODO Handel exception if not existent, create or do  other stuff
 
-    def create_current_order(self):
-        # TODO Implement
-        # but somewhere else and implement create sub_from and add_to order in
-        # order with option to account in users assets
-        pass
-
     class Meta:
         ''' '''
         verbose_name = _('user')
@@ -77,19 +72,21 @@ class User(AbstractUser):
         else:
             return _('{name} ({depot})').format(name=name,
                                                 depot=self.depot.name)
-# TODO rework the clean function
-#     def clean(self):
-#         ''' '''
-#         super(User, self).clean()
-#         if self.is_supervisor:
-#             if self.depot is None:
-#                 raise ValidationError(_('A Member has to have an depot.'))
-#         if self.is_member:
-#             if self.depot is None:
-#                 raise ValidationError(_('A Member has to have an depot.'))
-#         if self.weeklybasket.defaultbasket.objects.all():
-#             raise ValidationError(_('A Member has to have an '
-#                                     'weekly basket.'))
+
+    def clean(self):
+        ''' '''
+        if self.is_supervisor:
+            if self.depot is None:
+                raise ValidationError(_('A Member has to have an depot.'))
+        if self.is_member:
+            if self.depot is None:
+                raise ValidationError(_('A Member has to have an depot.'))
+        if self.defaultbasket is None:
+            raise ValidationError(_('A Member has to have an '
+                                    'weekly basket.'))
+        if self.assets > settings.MaxValueValidator:
+            self.assets = settings.MaxValueValidator
+            self.save()
 
 
 class ProductProperty(models.Model):
@@ -147,6 +144,11 @@ class Product(models.Model):
                                        validators=[validators.MinValueValidator(0)],
                                        help_text=_('exchange value per unit'))
 
+    max_at_once = models.IntegerField(help_text=_('max amount orderable at once'),
+                                      blank=False,
+                                      default=20)
+
+
     class Meta:
         ''' '''
         verbose_name = _('product')
@@ -174,14 +176,18 @@ class Depot(models.Model):
 class Amount(models.Model):
     productproperty = models.ForeignKey('ProductProperty',
                                         related_name='amount',
-                                        on_delete=models.PROTECT)
-    count = models.IntegerField(default=1)
+                                        on_delete=models.PROTECT,
+                                        blank=False)
+    count = models.IntegerField(default=1,
+                                validator = [
+                                validators.MaxValueValidator(productproperty.product.max_at_one/productproperty.amount),
+                                validators.MinValueValidator(1)
+                                ])
 
     ordercontent = models.ForeignKey('OrderContent',
                                       related_name='contains',
                                       on_delete=models.CASCADE,
-                                      blank=False,
-                                      null=True)
+                                      blank=False)
 
     @property
     def exchange_value(self):
@@ -234,7 +240,6 @@ class OrderContent(models.Model):
             value = amount.exchange_value
 
             if amount.count > count:
-                # TODO maybe self.clean() with clean cleans to big assets
                 amount.count -= count
                 amount.save()
                 return prdctprop.exchange_value, True
@@ -299,10 +304,9 @@ class DefaultBasket(models.Model):
                                    blank=False,
                                    null=True,
                                    parent_link=True,
-                                   # default=OrderContent.objects.create(),
                                    # TODO limit_choices_to without
                                    # Order basket functions
-                                   # on_delete=models.PROTECT,
+                                   on_delete=models.PROTECT,
                                    related_name='defaultbaskets')
     name = models.CharField(max_length=15,
                             blank=False,
@@ -316,11 +320,6 @@ class DefaultBasket(models.Model):
     def __str__(self):
         return _('Default Order: {name}').format(name=self.name,
                                                            order=self.content)
-#    def __iadd__(self, other):
-#        self.content += other.content
-#
-#    def __isub__(self, other):
-#        self.content -= other.content
 
 
 class OrderBasket(models.Model):
@@ -367,26 +366,20 @@ class OrderBasket(models.Model):
 
         if existed and account:
             self.user.assets += value
-            # TODO maybe self.clean() with clean cleans to big assets
+            self.user.clean()
             self.user.save()
         elif not existed:
             pass
             # TODO raise did not exit
 
 
-#    def __iadd__(self, other):
-#        self.content += other.content
-#
-#    def __isub__(self, other):
-#        self.content -= other.content
-
-#    def clean(self):
-#        ''' .'''
-#        super().clean()
-#        self.week = utils.get_monday(self.week)
-#        # TODO kick product out of OrderContent if not oderable (in product an
-#        # productproperties!) or don't and assert that only orderable product
-#        # for this week are taken into account
+   def clean(self):
+       ''' .'''
+       self.week = utils.get_monday(self.week)
+       self.save()
+       # TODO kick product out of OrderContent if not oderable (in product an
+       # productproperties!) or don't and assert that only orderable product
+       # for this week are taken into account
 
     # TODO replace get_moday with get packing day and do this for all other
     # contents aswell
@@ -420,7 +413,7 @@ class RegularyOrder(models.Model):
     count = models.IntegerField(default=0) 
 
     #savings = models.FloatField(default=0,
-                                null=True) # TODO validate
+    #                            null=True) # TODO validate
 
     # period the user wants to order in
     # indicates conterOrder if negative see property is_counterorder
@@ -430,7 +423,7 @@ class RegularyOrder(models.Model):
     # if modular product lastorder = last changing time!
     lastorder = models.DateField()
 
-    lastaccses = models.DateField(add_new=True)
+    lastaccses = models.DateField(auto_now=True)
 
     @property
     def is_counterorder(self):
