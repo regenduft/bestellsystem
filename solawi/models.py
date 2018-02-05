@@ -38,24 +38,6 @@ class User(AbstractUser):
                                  validators=[validators.MinValueValidator(0),
                                              validators.MaxValueValidator(settings.MAX_USER_ASSET)])
 
-    def add_to_present_order(self, prdctprop, count=1):
-        '''Add a product to the present order.'''
-        try:
-            present = self.orderbaskets.objects.get(week=utils.this_week())
-            present.add_to_order(prdctprop, count)
-        except DoesNotExist:
-            pass
-            #TODO Handel exception if not existent, create or do  other stuff
-                            
-    def sub_from_present_order(self, prdctprop, count=None):
-        '''Remove a product from the present order.'''
-        try:
-            present = self.orderbaskets.objects.get(week=utils.this_week())
-            present.sub_from_order(prdctprop, count)
-
-        except DoesNotExist:
-            pass
-            #TODO Handel exception if not existent, create or do  other stuff
 
     class Meta:
         ''' '''
@@ -103,6 +85,10 @@ class ProductProperty(models.Model):
                                    blank=True,
                                    help_text=_('product type'))
 
+    max_at_once = models.IntegerField(help_text=_('max amount orderable at once'),
+                                      blank=False,
+                                      default=5)
+
     @property
     def exchange_value(self):
         return product.exchange_value*packagesize
@@ -144,11 +130,6 @@ class Product(models.Model):
                                        validators=[validators.MinValueValidator(0)],
                                        help_text=_('exchange value per unit'))
 
-    max_at_once = models.IntegerField(help_text=_('max amount orderable at once'),
-                                      blank=False,
-                                      default=20)
-
-
     class Meta:
         ''' '''
         verbose_name = _('product')
@@ -174,15 +155,18 @@ class Depot(models.Model):
 
 
 class Amount(models.Model):
+    '''Intermediate model for OrderContent and Productproperty.
+    
+    Prefetch_related productproperty and productproperty__product if you use
+    the @properties'''
+
     productproperty = models.ForeignKey('ProductProperty',
                                         related_name='amount',
                                         on_delete=models.PROTECT,
                                         blank=False)
     count = models.IntegerField(default=1,
-                                validator = [
-                                validators.MaxValueValidator(productproperty.product.max_at_one/productproperty.amount),
-                                validators.MinValueValidator(1)
-                                ])
+                                validators = [ validators.MinValueValidator(1) ]
+                                )
 
     ordercontent = models.ForeignKey('OrderContent',
                                       related_name='contains',
@@ -192,17 +176,19 @@ class Amount(models.Model):
     @property
     def exchange_value(self):
         return self.count*self.productproperty.exchange_value
-
-    @property
-    def orderable(self):
-        return self.productproperty.orderable and self.productproperty.product.orderable # FIXME max orderable at once < ...
+    
+    def clean(self):
+        productp = self.productproperty
+        if count > productp.max_at_once/productp.packagesize: 
+            raise ValidationError(_('You can not order more then {max} of'
+                '{product} at onces ').format(maxx = productp.max_at_once, product=productp))
 
     class Meta:
         ''' '''
         verbose_name = _('packed product')
         verbose_name_plural = _('packed products')
+        # uniqueness for productproperty to map e.g. flour or oat flakes types
         unique_together = ('ordercontent' ,'productproperty')
-        # FIXME decide if uniqueness should be for product
 
     def __str__(self):
         return '{count}'.format(
@@ -218,6 +204,10 @@ class OrderContent(models.Model):
                                       blank=False)
 
     def add_or_create_product(self, prdctprop, count=1):
+        '''Add count or create productproperty for ordercontent.
+
+        defaults count=1 
+        returns: amount.exchange_value , created'''
         amount, created = Amount.objects.get_or_create(
                 productproperty=prdctprop, 
                 ordercontent=self,
@@ -233,7 +223,7 @@ class OrderContent(models.Model):
         '''Subtract count or delete productproperty form ordercontent.
 
         defaults count=None deleates product
-        returns: (min(amount.echange_value, prdctprop.exchange_value) , existed) of amount'''
+            returns: (min(amount.echange_value, prdctprop.exchange_value) , persists) of amount'''
         try:
             amount = Amount.objects.get(productproperty=prdctprop, 
                                         ordercontent=present.content)
@@ -245,49 +235,13 @@ class OrderContent(models.Model):
                 return prdctprop.exchange_value, True
             else:
                 amount.delete()
-                return value, True
+                return value, False
 
         except Amount.DoesNotExist:
-            # should not happen #TODO
-            return None, False
-
-
-    def remove(self, product):
-        pass
-
-#    def __iadd__(self, other):
-#        '''! Ignore not oderables.'''
-#        #TODO TEST this! FIXME rework it!
-#
-#        toinclude = other.productproperty.all().difference(self.productproperty.all())
-#        for prdkt in toinclude:
-#            prdkt.amount.filter(ordercontent=other).update(ordercontent=self)
-#
-#        tomerge = self.productproperty.all().intersection(other.productproperty.all())
-#        for prdkt in tomerge:
-#
-#            for othrprop in other.contains.filter(productproperty=prdkt):
-#                try: 
-#                    selfprop = self.contains.get(ordercontent=self,
-#                            productproperty=othrprop.productproperty)
-#
-#                except ObjectDoesNotExist:
-#                    prdkt.amount.filter(productproperty=othrprop.productproperty,
-#                                        ordercontent=other).update(ordercontent=self)
-#                else:
-#                    selfprop.count += othrprop.count()
-#                    selfprop.save()
-#                    othrprop.delete()
-#
-#        self.delete()
-#
-#    def __isub__(self, other):
-#        '''.'''
-#        pass
-
+            # No Product -> no value
+            return 0, False
 
     class Meta:
-        ''' '''
         verbose_name = _('content of order')
         verbose_name_plural = _('content of orders')
 
@@ -304,10 +258,9 @@ class DefaultBasket(models.Model):
                                    blank=False,
                                    null=True,
                                    parent_link=True,
-                                   # TODO limit_choices_to without
-                                   # Order basket functions
                                    on_delete=models.PROTECT,
                                    related_name='defaultbaskets')
+
     name = models.CharField(max_length=15,
                             blank=False,
                             unique=True,
@@ -315,11 +268,12 @@ class DefaultBasket(models.Model):
                             help_text=_('basket name'))
 
     class Meta:
-        pass
+        verbose_name = _('default orderbasket')
+        verbose_name_plural = _('default orderbaskets')
 
     def __str__(self):
         return _('Default Order: {name}').format(name=self.name,
-                                                           order=self.content)
+                                                 order=self.content)
 
 
 class OrderBasket(models.Model):
@@ -328,9 +282,9 @@ class OrderBasket(models.Model):
                                    blank=False,
                                    null=True,
                                    parent_link=True,
-                                   # default=OrderContent.objects.create(),
-                                   # on_delete=models.PROTECT,
+                                   on_delete=models.PROTECT,
                                    related_name='order')
+
     week = models.DateField(blank=False,
                             null=True)
 
@@ -340,17 +294,24 @@ class OrderBasket(models.Model):
                              blank=False,
                              null=True)
 
-    def add_to_order(self, prdctprop, count, account=True):
+    def add_to_order(self, prdctprop, count=1, account=True):
         '''Add a product to order.'''
         value = prdctprop.exchange_value*count
 
         if not (prdctprop.orderable and prdctprop.product.orderable):
-            # TODO raise validation error should not be possible but not orderable
-            pass
+            raise ValidationError(_('%(prdctprop)s is not orderable'),
+                                    params={'prdctprop': prdctprop},
+                                    code='notorderable')
+                                    # TODO Maybe pass why not orderable
+
         elif account:
             if self.user.assets < value:
-                # TODO raise validation error not enough assets
-                pass
+                raise ValidationError(_('%(user)s assets where to low to order %(count)s %(prdctprop)s'),
+                                        params={'prdctprop': prdctprop,
+                                                'count': count,
+                                                'prdctprop': prdctprop},
+                                        code='notorderable')
+
             else:
                 value, created = self.content.add_or_create_product(prdctprop, count)
 
@@ -359,27 +320,28 @@ class OrderBasket(models.Model):
         else:
             self.content.add_or_create_product(prdctprop, count)
 
-    def sub_from_order(self, prdctprop, count, account=True):
+    def sub_from_order(self, prdctprop, count=None, account=True):
         '''Subtract or delete a product from order.'''
 
-        value, existed = self.content.sub_or_delete_product(prdctprop, count)
+        value, persists = self.content.sub_or_delete_product(prdctprop, count)
 
-        if existed and account:
+        if not persits and value == 0:
+            raise ValidationError(_('%(prdctprop)s was not ordered'),
+                                    params={'prdctprop': productproperty},
+                                    code='notordered')
+        elif account and value > 0:
             self.user.assets += value
             self.user.clean()
             self.user.save()
-        elif not existed:
-            pass
-            # TODO raise did not exit
 
+    def clean(self):
+        ''' .'''
+        self.week = utils.get_monday(self.week)
+        self.save()
 
-   def clean(self):
-       ''' .'''
-       self.week = utils.get_monday(self.week)
-       self.save()
-       # TODO kick product out of OrderContent if not oderable (in product an
-       # productproperties!) or don't and assert that only orderable product
-       # for this week are taken into account
+        # TODO kick product out of OrderContent if not oderable (in product an
+        # productproperties!) or don't and assert that only orderable product
+        # for this week are taken into account
 
     # TODO replace get_moday with get packing day and do this for all other
     # contents aswell
@@ -488,7 +450,6 @@ class RegularyOrder(models.Model):
         verbose_name = _('regularly order')
         verbose_name_plural = _('regularly orders')
         unique_together = ('user', 'productproperty')
-        # FIXME decide if uniqueness should be for product
 
     def __str__(self):
         return _('{user} regularly orders: {count}x{product}').format(user=self.user,
