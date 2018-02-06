@@ -3,38 +3,35 @@ from .models import *
 
 
 
-@admin.register(DefaultBasket)
-class DefaultBasketAdmin(admin.ModelAdmin):
+class DefaultBasketInline(admin.StackedInline):
     ''' '''
-    pass
+    model = DefaultBasket
 
+class OrderBasketInline(admin.StackedInline):
+    ''' '''
+    model = OrderBasket
 
-@admin.register(Product, ProductProperty)
+@admin.register(OrderContent)
+class OrderContentAdmin(admin.ModelAdmin):
+    ''' '''
+    inlines = [
+            OrderBasketInline,
+            DefaultBasketInline,
+            ]
+            
+class ProductPropertyInline(admin.StackedInline):
+    ''' '''
+    model = ProductProperty
+
+@admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     ''' '''
-    pass
+    inlines = [
+            ProductPropertyInline,
+            ]
 
-
-class DepotAdmin(admin.ModelAdmin):
-    ''' '''
-    pass
-
-
-
-
-class UserAdmin(admin.ModelAdmin):
-    ''' '''
-    pass
-
-
-@admin.register(OrderBasket)
-class OrderBasketAdmin(admin.ModelAdmin):
-    ''' '''
-    pass
-
-
-admin.site.register(Amount, ProductAdmin)
-admin.site.register(OrderContent, OrderBasketAdmin)
-admin.site.register(RegularyOrder, DepotAdmin)
-admin.site.register(Depot, DepotAdmin)
-admin.site.register(User, UserAdmin)
+admin.site.register(ProductProperty)
+admin.site.register(Amount)
+admin.site.register(RegularyOrder)
+admin.site.register(Depot)
+admin.site.register(User)
