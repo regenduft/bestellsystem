@@ -1,5 +1,9 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import copy
 import datetime
+from solawi import settings
 
 def view_property(method):
     '''
@@ -42,29 +46,41 @@ def get_monday(date=None):
     return date - datetime.timedelta(date.weekday())
 
 
-def this_year():
-    ''' '''
-    return datetime.date.today().year
+def is_leapyear(isoyear):
+    '''Returns if input is leapyear.'''
+    return 3 == datetime.date(isoyear,1,1).weekday() == datetime.date(isoyear,12,31).weekday()
 
 
-def this_week():
-    ''' '''
-    return int(datetime.date.today().strftime('%W'))
+def iso_weeks_add(isoyear, isoweek, addning):
+    '''Add weeks to an isoweek in an isoyear.'''
 
+    resweek = isoweek + adding
+    resyear = isoyear
+
+    while resweek > 53:
+        if is_leapyear(resyear):
+            resweek -= 53
+            resyear += 1
+        else:
+            resweek -= 52
+            resyear += 1
+
+    if resweek == 53 and not is_leapyear(resyear):
+            resweek -= 52
+            resyear += 1
+
+    return resyear, resweek
+
+
+def get_delivery_week(date=None):
+    '''Returns delivery year, week in isoformat according to settings.DELIVERY_DAY.'''
+    if date is None:
+        date = datetime.date.today()
+
+    # if today is del day scip to nextweek
+    if date.day >= settings.DELIVERY_DAY:
+       date += datetime.timedelta(days=7) 
+    return date.isocalendar()[:2]
 
 def date_from_week(year=None, week=None):
-    '''
-
-    Args:
-      year: (Default value = None)
-      week: (Default value = None)
-
-    Returns:
-
-    '''
-    if year is None:
-        year = this_year()
-    if week is None:
-        week = this_week()
-    dstr = '{year}-{week}-1'.format(year=year, week=week)
-    return datetime.datetime.strptime(dstr, '%Y-%W-%w')
+    pass
