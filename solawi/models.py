@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import datetime
+from datetime import date
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
@@ -64,8 +64,7 @@ class User(AbstractUser):
             if self.depot is None:
                 raise ValidationError(_('A Member has to have an depot.'))
         if self.defaultbasket is None:
-            raise ValidationError(_('A Member has to have an '
-                                    'weekly basket.'))
+            raise ValidationError(_('A Member has to have an default basket.'))
         if self.assets > settings.MaxValueValidator:
             self.assets = settings.MaxValueValidator
             self.save()
@@ -285,8 +284,13 @@ class OrderBasket(models.Model):
                                    on_delete=models.PROTECT,
                                    related_name='order')
 
-    week = models.DateField(blank=False,
-                            null=True)
+    isoweek = models.IntegerField(default=1,
+                                  validators=[validators.MinValueValidator(1),
+                                              validators.MaxValueValidator(53)],  
+                                  blank=False)
+    isoyear = models.IntegerField(default=1,
+                                  validators=[validators.MinValueValidator(2018)],
+                                  blank=False)
 
     user = models.ForeignKey('User',
                              on_delete=models.CASCADE,
@@ -334,32 +338,23 @@ class OrderBasket(models.Model):
             self.user.clean()
             self.user.save()
 
-    def clean(self):
+    def save(self, *args, **kwargs):
         ''' .'''
-        self.week = utils.get_monday(self.week)
-        self.save()
-
         # TODO kick product out of OrderContent if not oderable (in product an
         # productproperties!) or don't and assert that only orderable product
         # for this week are taken into account
-
-    # TODO replace get_moday with get packing day and do this for all other
-    # contents aswell
-    def save(self, *args, **kwargs):
-        ''' .'''
         # Set every date on Monday!
-        self.week = utils.get_monday(self.week)
         super(OrderBasket, self).save(*args, **kwargs)
 
     class Meta:
         ''' .'''
         verbose_name = _('ordering basket')
         verbose_name_plural = _('ordering baskets')
-        unique_together = ('week', 'user')
+        unique_together = ('isoweek', 'isoyear', 'user')
 
     def __str__(self):
-        return _('{week} by {user}').format(
-            week=self.week.strftime('%Y-%W'), user=self.user)
+        return _('{week} {year} by {user}').format(
+            week=self.isoweek, year=selfisoyear, user=self.user)
 
 
 class RegularyOrder(models.Model):
@@ -374,11 +369,15 @@ class RegularyOrder(models.Model):
                                         on_delete=models.PROTECT)
     count = models.IntegerField(default=0) 
 
-    period = models.IntegerField(default=1) # TODO validate via
+    period = models.IntegerField(default=1, validators=[validators.MaxValueValidator(52)]) # TODO validate via
     #approx_next_order or the current counterorder share
 
     # if modular product lastorder = last changing time!
-    lastorder = models.DateField()
+
+    lastorder_isoweek = models.IntegerField(default=1,
+                               validators=[validators.MinValueValidator(1),
+                                           validators.MaxValueValidator(53)])  
+    isoyear = models.IntegerField(default=1, validators=[validators.MinValueValidator(2018)])
 
     lastaccses = models.DateField(auto_now=True)
 
@@ -394,7 +393,14 @@ class RegularyOrder(models.Model):
     @property
     def ready(self):
         '''.'''
-        return self.lastorder+datetime.timedelta(weeks=self.period-1)<utils.this_week()
+        thisyear, thisweek = date.today().isocalender[:1]
+        if utils.is_leapyear(self.isoyear):
+            plusyear, plusweek = divmod(thisweek, 53)
+        else:
+            plusyear, plusweek = divmod(thisweek, 52)
+        thisyear+= plusyear
+        thisweek+= plusweek
+        return thisyear, thisweek 
 
     @property
     def orderable(self):
