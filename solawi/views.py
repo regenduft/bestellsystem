@@ -20,13 +20,18 @@ from solawi.utils import view_property
 from datetime import date
 from django.http import HttpResponse
 
-def test(request, *args, **kwargs):
-    return HttpResponse(' ;'.join(i for i in args)+' ;'.join(i for i in kwargs))
+
+def test(request, username):
+    latest_orders_list = OrderBasket.objects.filter(user__username=username)
+    output=' ;'.join(str(i) for i in latest_orders_list)
+    context = { 'latest_orders_list': latest_orders_list}
+    return render(request, 'base_test.html', context)
+
 def order(request, username, year, week):
     thisuser = get_object_or_404(User, username=username)
     return HttpResponse( get_object_or_404(OrderBasket, user=thisuser,
             week=utils.date_from_week(year=year, week=week)))
-#
+
 @method_decorator(login_required, name='dispatch')
 class BaseMemberView(generic.TemplateView):
     ''' '''
@@ -45,6 +50,21 @@ class BaseMemberView(generic.TemplateView):
             }
         return controls
 
+@method_decorator(login_required, name='dispatch')
+class DepotView(BaseMemberView):
+    ''' '''
+    template_name = 'depots.html'
+
+    @view_property
+    def depot(self):
+        ''' '''
+        self.depot_id = self.kwargs.get('depotname', None)
+        return get_object_or_404(Depot, name=self.depot_id)
+
+    @view_property
+    def members(self):
+        ''' '''
+        return self.depot.members.all()
 
 #@method_decorator(login_required, name='dispatch')
 #class WeekView(BaseMemberView):
@@ -139,18 +159,3 @@ class BaseMemberView(generic.TemplateView):
 #        return controls
 #
 #
-@method_decorator(login_required, name='dispatch')
-class DepotView(BaseMemberView):
-    ''' '''
-    template_name = 'depot.html'
-
-    @view_property
-    def depot(self):
-        ''' '''
-        self.depot_id = self.kwargs.get('depotname', None)
-        return get_object_or_404(Depot, name=self.depot_id)
-
-    @view_property
-    def members(self):
-        ''' '''
-        return self.depot.members.all()

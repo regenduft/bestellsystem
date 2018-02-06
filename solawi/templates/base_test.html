@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content%}
+
+	{% if latest_orders_list %}
+        <ul>
+		<li>Order, Content</li>
+		{% for  order in latest_orders_list %}
+		<li>{{ order }}, {{ order.content}}</li>
+		{% endfor %}
+        </ul>
+	{% else %} 
+	<p>There are no Orders avalible</p>
+	{% endif %}
+
+{% endblock %}

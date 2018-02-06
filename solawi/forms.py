@@ -5,6 +5,43 @@ from solawi.models import (
     OrderBasket,
 )
 
+# Old code for use in validation/ warning process of assets and ordering
+#    def current_counterorder_share(self, regords=None):
+#        # TODO test if summ of all current counterorder shares is one!
+#        if regords == None:
+#            regord = self.user.regularyorders.objects.all().prefetch_related('productproperty__product')
+#
+#        evSum, regSumPeriod = 0, 0
+#        for reg in regords:
+#            evSum += reg.exchange_value
+#            regSumPeriod += reg.period()
+#
+#        return (self.exchange_value/self.period)*(evSum/regSumPeriod)
+#
+#    # TODO changingtime for modular validate savings = None if
+#    # about productproperty.product.modular =True
+#    def approx_next_order(self):
+#        if self.ready():
+#            return _('surely'), self.lastorder+datetime.timedelta(weeks=self.period)
+#        else:
+#            # TODO Send warning not enough counterorder
+#            # calculate current counterorder share
+#            cc = current_counterorder_share()*sum([ amount.exchange_value for amount in
+#                self.user.counterorder.contains.all()])
+#
+#            # needs to be saved
+#            rest = (savings - self.exchange_value)
+#            # approx weeks left till order
+#            # round integer up without import any math
+#            left = (rest // ccs + (rest % ccs > 0))
+#            if left > 3*self.period:
+#                # TODO Document behavior or just send warning or raise
+#                # Validation Error
+#                return _('never'), None
+#            elif:
+#                return _('longer than wished'), self.lastorder+datetime.timedelta(weeks=left)
+#            else: 
+#                return _('approximately'), self.lastorder+datetime.timedelta(weeks=left)
 
 #class WeeklyBasketForm(forms.Form):
 #    ''' '''
