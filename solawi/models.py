@@ -367,45 +367,38 @@ class RegularyOrder(models.Model):
 
     productproperty = models.ForeignKey('ProductProperty',
                                         on_delete=models.PROTECT)
-    count = models.IntegerField(default=0) 
+    count = models.IntegerField(default=1,)
 
-    period = models.IntegerField(default=1, validators=[validators.MaxValueValidator(52)]) # TODO validate via
+    period = models.IntegerField(default=1,
+                                 validators=[validators.MinValueValidator(1),
+                                             validators.MaxValueValidator(52)])
     #approx_next_order or the current counterorder share
 
-    # if modular product lastorder = last changing time!
-
     lastorder_isoweek = models.IntegerField(default=1,
-                               validators=[validators.MinValueValidator(1),
-                                           validators.MaxValueValidator(53)])  
-    isoyear = models.IntegerField(default=1, validators=[validators.MinValueValidator(2018)])
+                                  validators=[validators.MinValueValidator(1),
+                                              validators.MaxValueValidator(53)],  
+                                  blank=False)
+    lastorder_isoyear = models.IntegerField(default=1,
+                                  validators=[validators.MinValueValidator(2018)],
+                                  blank=False)
 
     lastaccses = models.DateField(auto_now=True)
 
     @property
     def is_counterorder(self):
         '''True if is self is counterorder else order.'''
-        return self.period <= 0
+        return self.count < 0
 
     @property
-    def exchange_value(self):
-        return self.count*self.productproperty.exchange_value
-
-    @property
-    def ready(self):
-        '''.'''
+    def is_ready_order(self):
+        '''True if self ist ready to be booked and not counterorder.'''
+        if self.is_counterorder:
+            return False
+        bookingyear, bookingweek = utils.iso_weeks_add(self.lastorder_isoyear,
+                                                       self.lastorder_isoweek,
+                                                       self.period)
         thisyear, thisweek = date.today().isocalender[:1]
-        if utils.is_leapyear(self.isoyear):
-            plusyear, plusweek = divmod(thisweek, 53)
-        else:
-            plusyear, plusweek = divmod(thisweek, 52)
-        thisyear+= plusyear
-        thisweek+= plusweek
-        return thisyear, thisweek 
-
-    @property
-    def orderable(self):
-        return (self.productproperty.orderable and
-                self.productproperty.product.orderable)
+        return bookingweek <= thisweek or bookingyear < thisyear
 
     class Meta:
         ''' '''
