@@ -130,3 +130,6 @@ STATIC_URL = '/static/'
 
 # SoLaWi Settings:
 WEEKS_TO_SAVE_ACCOUNTS = 10
+MAX_USER_ASSET = 30
+# ISO Week Number of the delivery day 
+DELIVERY_DAY = 4 #Thursday
