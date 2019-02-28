@@ -32,6 +32,12 @@ def order(request, username, year, week):
     return HttpResponse( get_object_or_404(OrderBasket, user=thisuser,
             week=utils.date_from_week(year=year, week=week)))
 
+
+# @method_decorator(login_required, name='dispatch')
+class ProductList(generic.ListView):
+    model = Product
+    template_name = 'product_list.html'
+
 @method_decorator(login_required, name='dispatch')
 class BaseMemberView(generic.TemplateView):
     ''' '''

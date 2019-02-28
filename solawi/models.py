@@ -35,8 +35,8 @@ class User(AbstractUser):
                                       on_delete=models.PROTECT)
 
     assets = models.IntegerField(blank=False, default=0,
-                                 validators=[validators.MinValueValidator(0),
-                                             validators.MaxValueValidator(settings.MAX_USER_ASSET)])
+                                 validators=[validators.MinValueValidator(0),])
+                                             
 
 
     class Meta:
@@ -65,8 +65,8 @@ class User(AbstractUser):
                 raise ValidationError(_('A Member has to have an depot.'))
         if self.defaultbasket is None:
             raise ValidationError(_('A Member has to have an default basket.'))
-        if self.assets > settings.MaxValueValidator:
-            self.assets = settings.MaxValueValidator
+        if self.assets > settings.MAX_USER_ASSET:
+            self.assets = settings.MAX_USER_ASSET
             self.save()
 
 
@@ -170,6 +170,7 @@ class Amount(models.Model):
     ordercontent = models.ForeignKey('OrderContent',
                                       related_name='contains',
                                       on_delete=models.CASCADE,
+                                      null=True,
                                       blank=False)
 
     @property
@@ -178,7 +179,7 @@ class Amount(models.Model):
     
     def clean(self):
         productp = self.productproperty
-        if count > productp.max_at_once/productp.packagesize: 
+        if self.count > productp.max_at_once/productp.packagesize: 
             raise ValidationError(_('You can not order more then {max} of'
                 '{product} at onces ').format(maxx = productp.max_at_once, product=productp))
 
@@ -354,7 +355,7 @@ class OrderBasket(models.Model):
 
     def __str__(self):
         return _('{week} {year} by {user}').format(
-            week=self.isoweek, year=selfisoyear, user=self.user)
+            week=self.isoweek, year=self.isoyear, user=self.user)
 
 
 class RegularyOrder(models.Model):
