@@ -54,5 +54,10 @@ Und natürlich kann man Sqlite exportieren (sqlite3 db.sqlite3 .schema > schema.
 
 - Bearbeiten (nachdem ich euren github-usernamen freigeschaltet habe!): https://www.draw.io/#Hregenduft%2Fbestellsystem%2Fdevelopment%2Fsolawi_bestellsystem_database.drawio
 
+NEUER Vorschlag von Regenduft (einfacher dank nun offiziellem Punktesystem):
+
+- Ansehen (alle): https://www.draw.io/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Fregenduft%2Fbestellsystem%2Fdevelopment%2Fsolawi_bestellsystem_database_neu.drawio
+
+- Bearbeiten (nachdem ich eueren github-usernamen freigeschaltet habe!): https://www.draw.io/#Hregenduft%2Fbestellsystem%2Fdevelopment%2Fsolawi_bestellsystem_database_neu.drawio
 
 
