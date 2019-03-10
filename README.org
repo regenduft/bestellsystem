@@ -5,7 +5,7 @@
 
 Login: Bitte erfragen bei solawi@regenduft.de
  
-- http://solawi.petricho.arcturus.uberspace.de/test/solawi (solawi = ein username) 
+- http://solawi.petricho.arcturus.uberspace.de/test/member (member = ein username) 
 - http://solawi.petricho.arcturus.uberspace.de/accounts/profile/ 
 - http://solawi.petricho.arcturus.uberspace.de/accounts/order/ 
 - http://solawi.petricho.arcturus.uberspace.de/accounts/order/edit/ 
