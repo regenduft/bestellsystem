@@ -1,4 +1,18 @@
 * Ordering-System for the SoLaWi-Rhein-Neckar
+** Existing TEST / DEVELOPMENT instance / installation:
+
+- http://solawi.petricho.arcturus.uberspace.de/admin/ -> Depots, Produkte, Regelmäßige Warenkörbe definieren.
+
+Login: Bitte erfragen bei solawi@regenduft.de
+ 
+- http://solawi.petricho.arcturus.uberspace.de/test/solawi (solawi = ein username) 
+- http://solawi.petricho.arcturus.uberspace.de/accounts/profile/ 
+- http://solawi.petricho.arcturus.uberspace.de/accounts/order/ 
+- http://solawi.petricho.arcturus.uberspace.de/accounts/order/edit/ 
+- http://solawi.petricho.arcturus.uberspace.de/products/ 
+- http://solawi.petricho.arcturus.uberspace.de/order/solawi/2019/1/
+
+
 ** Installation
 *** Make sure you have "virtualenv" installed
 #+BEGIN_SRC shell
