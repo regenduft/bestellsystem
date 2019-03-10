@@ -38,3 +38,24 @@ Ther is no DataBase in this Repo. Therefore you wont be able to check most of th
 
 ** Data Model
 For the Data Model look into MODELL.md
+
+Ich fange mal an, das Datenbank-Diagramm in draw.io nachzuzeichnen, das Merlin &Co derzeit verwenden, dann haben wir eine Diskussions-Grundlage.
+
+Damit wir die Diagramme up-to-date halten können, habe ich zwei automatische Ansätze getestet:
+
+- Django bietet einen Export zu "Graphviz" an (Dateiendung .dot), Anleitung: https://django-extensions.readthedocs.io/en/latest/installation_instructions.html
+ Draw.io kann das leider nur als Bild importieren, aber möglicherweise finden wir ein anderes Programm mit dem wir graphviz Datein weiterbearbeiten können.
+
+Ansehen (alle): https://www.draw.io/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Fregenduft%2Fbestellsystem%2Fdevelopment%2Fsolawi_bestellsystem_database_imported.drawio
+
+Bearbeiten (nachdem ich euren github-usernamen freigeschaltet habe!): https://www.draw.io/#Hregenduft%2Fbestellsystem%2Fdevelopment%2Fsolawi_bestellsystem_database_imported.drawio
+
+
+- Und natürlich kann man Sqlite exportieren (sqlite3 db.sqlite3 .schema > schema.sql, danach pretty-print http://www.dpriver.com/pp/sqlformat.htm danach draw.io -> Arrange -> Insert SQL)
+
+Ansehen (alle): https://www.draw.io/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Fregenduft%2Fbestellsystem%2Fdevelopment%2Fsolawi_bestellsystem_database.drawio
+
+Bearbeiten (nachdem ich euren github-usernamen freigeschaltet habe!): https://www.draw.io/#Hregenduft%2Fbestellsystem%2Fdevelopment%2Fsolawi_bestellsystem_database.drawio
+
+
+
